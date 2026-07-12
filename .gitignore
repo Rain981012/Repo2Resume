@@ -10,5 +10,8 @@ __pycache__/
 # 临时测试
 .tmp-*
 
+# macOS
+.DS_Store
+
 # Phase A 测试用仓库(本地私有数据,不入库)
 test_repos/
