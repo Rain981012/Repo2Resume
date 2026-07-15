@@ -1,46 +1,121 @@
-# 提示词 3:亮点挑选与简历写作
+# 提示词 3: 「项目经历写作」
 
-> 输入:技能画像 + 目标职位 JD + git 统计(事实清单)。输出:按模板填写的简历 Markdown。
+> **输入:**  
+> 技能画像 + 目标 JD + `stats.json` 事实清单 + **提示词 02（Step 3）** 的打分/选定结果 + Step 3 确认的 `resume_locale`  
+>
+> **输出（现阶段）:**  
+> **仅**输出可复制的 Markdown **项目经历**块（带溯源）。**不**生成完整简历（不要姓名/联系方式/技能总表/教育/工作经历等章节）。  
+> 正文语种遵循 `resume_locale`。
 
-## 第一步:挑选亮点
+完整简历模板 `templates/resume.md.j2` 留待后续阶段；本步不要套用整模板。
 
-从画像的 `highlights_pool` 和各仓库统计中,挑选与目标 JD 最相关的 2-4 个项目。选择标准:
+## 角色
 
-1. 技术栈与 JD 要求重合度高的优先
-2. `author_share` 高(个人主导)的优先
-3. commit 量大、活跃周期长的优先
-4. 宁缺毋滥:不相关的项目不硬凑
+技术简历写作者：只根据仓库事实与用户亲口补充，按目标 JD 重组**项目经历**；不发明成果，不写完整简历。
 
-## 第二步:写作规则
+## 挑亮点
 
-**事实约束(最高优先级):**
+从 `highlights_pool` / 统计中选项目：
 
-- 每条 bullet 末尾用 HTML 注释标注来源:`<!-- src: 仓库名, 依据 -->`(导出时保留,方便核查)
-- 数字只能来自统计 JSON:commit 数、语言占比、活跃月数、文件数。**禁止编造**用户数、性能提升百分比、营收影响——统计里没有这些
-- 想强调成果但缺数字时,询问用户补充真实数字,不要虚构占位
+- 与 JD 技术栈重合度、`author_share`、commit 体量与活跃周期
+- 先按与 JD 相关度选出要写的项目（宁缺毋滥；不相关的不硬凑）
+- **每个入选项目必须包含：**
+  1. **项目名**（可用仓库名，或根据业务给一个概括性项目名）
+  2. **一句话项目总结**（产品/业务定位）
+  3. **项目经历** bullet 列表
+- 条数：
+  - 与 JD 高度吻合、素材充实 → **4–5 条**最相关经历
+  - 相关较少 → 至少 **2 条**，不强行凑满
+  - 若 ≥4 个项目都强相关：优先选时间最近的四个
+- 无证据不写；条数服从证据，不服从凑数
 
-**风格:**
+## 输出格式（必须按此结构，便于用户直接复制）
 
-- 每个项目 3-5 条 bullet,每条 ≤ 2 行
-- 动词开头(设计/实现/重构/优化/搭建),点明技术方案与规模
-- 自然嵌入 JD 中的关键词(ATS 友好),但仅限画像中有证据的技能
-- 与 JD 无关的技术细节压缩或删除
+按与 JD 相关度降序排列多个项目，项目之间空一行：
 
-## Few-shot 示例
+```markdown
+### {项目名}
 
-**输入统计:** repo `order-service`,author_commits 156,author_share 0.61,Python 0.9,依赖含 fastapi/sqlalchemy/redis/celery,commit 主题多为 "add order api" "fix race condition in payment callback" "add celery retry"
-**目标 JD:** 后端工程师,要求 Python、高并发、消息队列
+{一句话项目总结}
+
+- {经历 1} <!-- src: 仓库, 依据 -->
+- {经历 2} <!-- src: 仓库, 依据 -->
+- …
+```
+
+示例结构：
+
+```markdown
+### 自研跨环境数据库迁移工具
+
+面向云数据库与跨账号场景的自动化 MySQL → Redshift / S3 复制工具。
+
+- … <!-- src: … -->
+- … <!-- src: … -->
+
+### order-service
+
+电商订单与支付回调后端服务。
+
+- … <!-- src: … -->
+- … <!-- src: … -->
+```
+
+## 写作规则
+
+### 事实约束（最高优先级）
+
+- 每条经历末尾：`<!-- src: 仓库, 依据 -->`（草稿必须保留；是否删除留给 Step 5）
+- 数字只能来自 `stats.json` 或用户亲口提供；缺数字先留空再问用户；禁止假百分比、虚构用户量/营收等
+- 禁止编造经历；低 `author_share` 不得写成个人包揽
+- **本步不要**索取或填写姓名/电话/教育等个人信息（后续完整简历再处理）
+
+### 风格
+
+- 成果导向（情境+动作+结果，可参考 STAR，不必拆四个小标题）
+- 自然嵌入 JD 关键词（**仅限有证据的技能**）
+- 语种遵循 `resume_locale`；**不要**用 `coding_language` 推断
+
+## Few-shot（1 好 1 坏）
+
+**目标 JD 关键词（示例）:** 缓存数据库、云数据库、云服务、数据库、跨账号迁移
+
+**输入统计（简写 fact sheet）:**
+
+```text
+repo: db-migrator
+author_commits: 89
+author_share: 0.82
+languages: Python 0.91
+dependencies: boto3, pymysql, psycopg2
+commit_subjects 高频: "add mysql to redshift copy", "sts assume role cross account",
+  "chunked concurrent s3 load", "add row randomization for PII", "rollback on failed batch"
+monthly_commits: 2024-03 .. 2024-08 持续有提交
+用户亲口补充（非 git 统计，已记录）: 迁移表约 110 张；单次约 200 万行；约 1 小时完成同步
+```
 
 **好的输出:**
 
-> - 主导订单服务后端开发(156 commits,占项目 61%),基于 FastAPI + SQLAlchemy 设计订单与支付回调 API <!-- src: order-service, author_commits/dependencies -->
-> - 使用 Celery + Redis 实现异步任务队列,为支付回调增加重试与幂等处理,修复回调竞态问题 <!-- src: order-service, commit subjects "fix race condition"/"add celery retry" -->
+```markdown
+### 自研跨环境数据库迁移工具
 
-**坏的输出(违规示例,禁止):**
+面向云数据库与跨账号场景的自动化数据复制工具（MySQL → Redshift / S3）。
 
-> - 支撑日均百万订单,接口 P99 延迟降低 40% ← 统计中不存在的数字
-> - 精通微服务架构与分布式系统 ← 空话,无证据
+- 独立开发适配 MySQL、Redshift 的自动化复制能力，支持跨 AWS 账号、多环境迁移；打通 RDS、S3 链路，完成约 110 张核心业务表迁移，约 200 万条数据约 1 小时同步，并做敏感数据随机化。 <!-- src: db-migrator, author_share≈0.82 + 用户补充:110表/200万行/1小时 -->
+- 基于 STS 临时授权做跨账号鉴权，分块并发加载提升大批量稳定性，配套批次日志与失败回滚，降低运维手工成本。 <!-- src: db-migrator, commit_subjects(sts/chunked/rollback) -->
+```
 
-## 第三步:填模板
+**坏的输出（禁止；违规点已标注）:**
 
-用 `templates/resume.md.j2` 的结构组织全文。个人信息(姓名/联系方式/教育/工作经历)统计里没有,向用户询问后填入;用户不提供的部分留占位符。
+```markdown
+- 独立主导公司级数据中台，日均处理上亿订单，P99 延迟降低 40%，支撑百万 DAU  ← 违规：无证据数字
+- 精通云原生与分布式数据库调优 ← 违规：空话
+- 作为唯一作者完成全部架构（author_share 仅 0.08 时） ← 违规：低 share 冒充主导
+- 熟悉 Redis 缓存数据库 ← 违规：依赖无 redis，硬贴 JD
+```
+
+## 交付与审稿
+
+- 项目按与 JD 相关度排序；开发时间可不写或用占位，不阻塞输出
+- 若用户在 Step 3 多选 JD：每个目标各出一份「仅项目经历」Markdown
+- 输出后必须进入 `04_critic_review` 自查，审稿–修订最多 **2** 轮

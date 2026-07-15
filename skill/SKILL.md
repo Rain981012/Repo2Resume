@@ -21,7 +21,7 @@ description: >
 - [ ] Step 1 分析仓库 → 统计 JSON
 - [ ] Step 2 技能画像 ⏸ 用户确认
 - [ ] Step 3 职位搜索与打分 ⏸ 用户选定目标
-- [ ] Step 4 生成简历草稿 → 自我审稿
+- [ ] Step 4 生成项目经历草稿 → 自我审稿
 - [ ] Step 5 与用户迭代修改 ⏸ 确认后导出
 ```
 
@@ -53,7 +53,7 @@ python3 scripts/git_stats.py <repo1> <repo2> ... \
 - **输入** Step 1 的 `stats.json`
 - **输出** 结构化画像（字段由 01 提示词定义）
 
-**必须展示并请用户确认**（至少：主方向、gaps）；**未确认不得进入 Step 3**。展示内容包括：
+**必须展示并请用户确认**（至少：主方向）；**未确认不得进入 Step 3**。`gaps_or_cautions` 建议展示，但不强制确认——用户可稍后自行补充。展示内容包括：
 
 1. 每个 repo 的技术栈（语言、框架、数据库等）。
 2. 主方向：前端/后端/全栈？Agent 应用 vs 传统开发？应用开发 vs 算法？
@@ -68,22 +68,31 @@ python3 scripts/git_stats.py <repo1> <repo2> ... \
 ## Step 3: 职位搜索与打分 ⏸
 
 - **读取** [prompts/02_job_search.md](prompts/02_job_search.md)
-- **先问** 城市 / 远程 / 职级；以及特殊要求（是否应届、目标薪资、学历硬性门槛等）。
+- **先问** 目标地区/城市 / 远程 / 职级；以及特殊要求（是否应届、目标薪资、学历硬性门槛等）。
   例如用户为本科学历，则不要推荐硬性要求硕士/博士的岗位。
-- **执行**：按 02 生成搜索词 → 联网搜索真实在招职位 → 打分排序；也接受用户粘贴 JD。
+- **再问两类语种偏好**（二者独立，均可与 `coding_language` 不同）：
+  1. **`job_search_locale`（搜岗用语种/市场）**：决定用什么语言搜、优先哪些招聘站。
+     - **默认 `zh-CN`**：中文搜索词 + 中文站点（Boss 直聘、智联、拉勾等），面向中国大陆岗位。
+     - **可改**：用户可显式改为 `en`（LinkedIn、Indeed 等英文站）或其它 BCP-47 码；字段须始终写入本轮偏好，便于以后扩展市场。
+     - Step 3 开头可简述默认并询问是否改；用户未改则按 `zh-CN` 开搜。若与「目标地区」明显冲突（如地区=多伦多但仍为 `zh-CN`），先确认再搜。
+  2. **`resume_locale`（简历用语种）**：供 Step 4 写作与导出；可与搜岗语种不同。进入 Step 4 前必须有值（可默认跟 `job_search_locale`，但须让用户有机会改）。
+- **执行**：按 02 与 `job_search_locale` 生成搜索词并选站 → 联网搜索真实在招职位 → 打分排序；也接受用户粘贴 JD。
   - 至少搜索 **≥20** 个真实在招岗位（优先近三个月发布）；
   - 按 JD 与 Step 2 方向/画像的匹配度打分，向用户展示评分最高的 **5** 个。
 
 **⏸ 用户选定 1 个（或多选）目标职位** 后才进入 Step 4。
 
-## Step 4: 生成简历草稿 + 自我审稿
+## Step 4: 生成项目经历草稿 + 自我审稿
 
-1. **读取** [prompts/03_resume_writing.md](prompts/03_resume_writing.md)，套用 [templates/resume.md.j2](templates/resume.md.j2) 结构。
-2. **个人信息**（姓名、联系方式、教育、工作经历）：统计中没有。
-   - 可询问用户填写；若用户暂不想填，模板中保留占位符即可（这些字段通常不随 JD 频繁改）。
-   - **不可省略的是**：根据 Step 3 选定职位的 JD，从 repo/统计中提炼最相关的 4–5 条项目经历。
-     例如 JD 要求 Redis 等缓存中间件，则应在仓库中定位相关使用/调试/设计证据，写成可溯源的 bullet。
-3. 草稿完成后立即按 [prompts/04_critic_review.md](prompts/04_critic_review.md) 自查；审稿–修订最多 **2** 轮。
+1. **读取** [prompts/03_resume_writing.md](prompts/03_resume_writing.md)。
+2. **现阶段只输出可复制的 Markdown 项目经历**（不要完整简历：不写姓名/联系方式/技能总表/教育/工作经历）。
+   每个入选项目固定三块：
+   - **项目名**（仓库名或概括性业务名）
+   - **一句话项目总结**
+   - **项目经历** bullet（高度吻合且充实 → 4–5 条；相关较少 → 至少 2 条；无证据不硬凑）
+   例如 JD 要求 Redis 等缓存中间件，则应在仓库中定位相关证据，写成可溯源的 bullet（`<!-- src: 仓库, 依据 -->`）。
+3. 草稿完成后立即按 [prompts/04_critic_review.md](prompts/04_critic_review.md) 自查；审稿–修订最多 **2** 轮。  
+   完整简历模板 `templates/resume.md.j2` 留待后续阶段再套用。
 
 ## Step 5: 迭代修改与导出 ⏸
 
@@ -103,8 +112,8 @@ python3 scripts/git_stats.py <repo1> <repo2> ... \
 | `job_directions.md` | Step 2 概括性职位类型（若有） |
 | `jobs_ranked.json` | Step 3 搜索与打分结果（可只保留 top 列表） |
 | `target_jd.md` | 选定职位的 JD 全文或摘要 + 来源链接 |
-| `resume_draft_v*.md` | 各版草稿（至少终稿前一版 + 终稿过程） |
-| `resume_final.md` | 用户确认的定稿 |
+| `resume_draft_v*.md` | 各版**项目经历**草稿（现阶段非完整简历） |
+| `resume_final.md` | 用户确认的项目经历定稿（或后续完整简历） |
 | `user_feedback.md` | 用户修改意见摘要（按轮次） |
 | `meta.json` | 本轮元数据（见下） |
 
@@ -115,6 +124,8 @@ python3 scripts/git_stats.py <repo1> <repo2> ... \
   "model": "本次使用的模型名",
   "date": "ISO 日期或本地日期时间",
   "target_job": "选定职位标题 + 公司（若有）",
+  "resume_locale": "zh-CN | en | …（简历用语种）",
+  "job_search_locale": "默认 zh-CN；可改为 en 或其它（搜岗市场/站点）",
   "repos": ["分析过的仓库路径或名称"],
   "authors": ["使用的 --author 过滤"]
 }

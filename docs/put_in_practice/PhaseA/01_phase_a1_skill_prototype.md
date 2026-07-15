@@ -1,7 +1,7 @@
 # Phase A1 实践复盘：Cursor Skill 原型（面试复习稿）
 
 > 项目：Repo2Resume  
-> 阶段：Phase A1 — 搭建 Skill 原型（`SKILL.md` + `git_stats.py` + 提示词骨架）  
+> 阶段：Phase A1 — 搭建 Skill 原型（`SKILL.md` + `git_stats.py` + 四组手写提示词）  
 > 用途：求职面试时复习「你在 Agent 项目里实际做过什么」+ **AI Agent 岗高频概念题**  
 > 对应文档：`docs/design_docs/DESIGN.md` §0、`docs/design_docs/MVP_PLAN.md` §2 Phase A1  
 > 核心增补：§6 面试问答（Skill / Harness / 幻觉 / RAG / 多智能体 / 评测）
@@ -10,7 +10,7 @@
 
 ## 1. 一句话项目定位（电梯陈述）
 
-Repo2Resume 用 **本地 git 贡献** 生成可溯源简历，并按技能画像匹配职位。阶段 A 不先写 CLI，而是做成 **Cursor Skill**：宿主 Agent 提供大脑与工具，我们只沉淀领域流程与提示词，用来验证「代码 → 画像 → 职位 → 简历」是否真能产出可用简历。
+Repo2Resume 用 **本地 git 贡献** 生成可溯源项目经历（后续再套完整简历），并按技能画像匹配职位。阶段 A 不先写 CLI，而是做成 **Cursor Skill**：宿主 Agent 提供大脑与工具，我们只沉淀领域流程与提示词，用来验证「代码 → 画像 → 职位 → 可溯源经历」是否真能跑通。
 
 面试可说：
 
@@ -23,18 +23,38 @@ Repo2Resume 用 **本地 git 贡献** 生成可溯源简历，并按技能画像
 | Phase A1 任务 | 状态 | 说明 |
 |---|---|---|
 | `skill/scripts/git_stats.py`（【AI 辅助】） | ✅ 已完成 | 多仓库、`--author`、语言/依赖/commit 主题统计 JSON |
-| `skill/templates/resume.md.j2`（【AI 生成】） | ✅ 已完成 | Markdown 简历模板 |
-| `skill/SKILL.md`（【手写】） | ✅ 已定稿清洗 | 五步流程 + 三处 HITL + 事实清单 + 归档 |
-| `skill/prompts/` 四组提示词（【手写】） | 🔄 进行中 | `handwrite/prompts/` 脚手架已备，待亲手填写 |
+| `skill/templates/resume.md.j2`（【AI 生成】） | ✅ 已完成 | Markdown 完整简历模板（后续阶段用） |
+| `skill/SKILL.md`（【手写】） | ✅ 已定稿 | 五步流程 + HITL + 事实清单 + 归档；Step 4 现阶段只出项目经历 |
+| `skill/prompts/` 四组提示词（【手写】） | ✅ 已定稿并启用 | 曾在 `handwrite/` 手写，已同步到 `skill/prompts/`；**`handwrite/` 已删除**，此后只改正式路径 |
+
 | Cursor 注册 | ✅ | `.cursor/skills/repo2resume` → `skill/` |
 | 设计文档 | ✅ | `DESIGN.md` / `MVP_PLAN.md` |
-| Phase A2（真实仓库 ≥3 轮迭代） | ⏳ 未开始 | 等 prompts 手写完成后跑全流程 |
+| Phase A2（真实仓库 ≥3 轮迭代） | ⏳ 下一步 | 用正式 prompts 跑全流程、归档 `runs/`、迭代提示词 |
+
+**四组提示词要点（便于面试口述）：**
+
+| Prompt | 职责 |
+|---|---|
+| `01_skill_profile` | 职业规划师；只信 `stats.json`；产出画像 JSON（含 `coding_language`、概括职位类型）；本步不联网搜岗 |
+| `02_job_search` | 招聘匹配分析师；`job_search_locale` 默认 `zh-CN` 可扩展；合计搜 ≥20；10 分制 = 0.7 技能 + 0.3 偏好；选定 JD 后才进 Step 4 |
+| `03_resume_writing` | 只写可复制 Markdown **项目经历**（项目名 + 一句话总结 + bullets）；充实 4–5 条 / 较弱 ≥2 条；强制 `<!-- src -->` |
+| `04_critic_review` | 与写作者分离的 Critic；必须改 / 建议改 / 通过项；写作者修订 ≤2 轮（阶段 A 仍是同会话换角色，非真多智能体） |
 
 **阶段 A 的三个目标里，已推进：**
 
-1. **流程验证**：主路径已写进 `SKILL.md`（分析 → 画像 → 搜岗 → 写简历 → 导出）。  
-2. **提示词沉淀**：`SKILL.md` 已沉淀；四组 prompts 待手写。  
-3. **数据积累**：归档规范已定（`runs/` + `meta.json`），跑通后才会有真实数据。
+1. **流程验证**：主路径已写进 `SKILL.md`（分析 → 画像 → 搜岗 → 项目经历 → 导出）。  
+2. **提示词沉淀**：`SKILL.md` + 四组 prompts 已定稿并装入 `skill/prompts/`，可供 Cursor Skill 加载。  
+3. **数据积累**：归档规范已定（`runs/` + `meta.json`）；**真实跑数在 Phase A2**。
+
+**A1 收尾状态：** 搭建类任务（脚本 / SKILL / 四组 prompts / 注册）已完成；A1 验收「在 Cursor 走完全流程」与 Phase A2 第一轮实跑合并进行即可。
+
+### 本步交付物（prompts 定稿）
+
+| 路径 | 说明 |
+|---|---|
+| `skill/prompts/01–04.md` | **唯一提示词路径**（手写工作区 `handwrite/` 已删除，避免双份不同步） |
+| `skill/SKILL.md` | Step 4 改为「仅项目经历」；`gaps` 非硬确认；locale / 搜岗默认中文等 |
+| `.cursor/skills/put-in-practice/` | 复盘文档更新 Skill（查漏补缺三块结构） |
 
 ---
 
@@ -68,6 +88,26 @@ Repo2Resume 用 **本地 git 贡献** 生成可溯源简历，并按技能画像
 - `git_stats.py` 按 author 过滤、排除 lock/node_modules、多邮箱 OR 语义。  
 - `test_repos/`、`runs/`、`.DS_Store` 进 `.gitignore`。  
 - PR 自动 description 工作流（开 PR 写 body；后续 push 按 trivial/substantive 决定是否重写）。
+
+### 3.6 本步：四组 prompts 定稿（做法 · 影响 · 亮点）
+
+**做了什么**
+
+- 在临时工作区手写并定稿 01–04，再覆盖同步到 `skill/prompts/`；随后**删除 `skill/handwrite/`**，只保留正式路径，避免再双份漂移。  
+- 联调产品规则写进 SKILL/prompts：`coding_language` vs `resume_locale` vs `job_search_locale`；搜岗默认中文可扩展；打分 10 分制（0.7 技能 + 0.3 偏好 + `preference_breakdown`）；Step 4 只出可复制项目经历；`gaps` 建议展示但不硬确认。  
+- 建立 `put-in-practice` Skill，固定复盘「完成项 / 影响亮点坑 / 面试知识点」查漏补缺流程。
+
+**对项目的影响**
+
+- Cursor Skill **第一次真正加载你的领域提示词**（此前正式路径仍是早期 AI 短稿）。  
+- 阶段 A 验收与 A2 真跑有了可执行契约；阶段 B 可把同一套 prompts 几乎原样迁入子 agent system prompt。  
+- Step 4 缩成「项目经历」降低 MVP 表面复杂度，先验证溯源与 JD 对齐，完整 `resume.md.j2` 后置。
+
+**本步亮点（可上面试）**
+
+- **字段语义拆分**：编程语言 / 简历用语种 / 搜岗市场语种分开，避免「对话用中文就搜中文岗、写中文简历」的隐性耦合。  
+- **可解释打分**：技能分与偏好分分离，`matched_skills` 不塞薪资学历；偏好维可 `unknown` 不进平均。  
+- **Writer–Critic 契约先于多智能体**：阶段 A 同会话换角色练协作模式；阶段 B 再拆独立上下文（见 §6.5 Q17b）。
 
 ---
 
@@ -110,6 +150,25 @@ Repo2Resume 用 **本地 git 贡献** 生成可溯源简历，并按技能画像
 - **实际**：symlink，同一 inode。  
 - **教训**：项目级 skill 放仓库 `skill/`，用链接注册到 Cursor 约定目录。
 
+### 坑 7：手写区定稿了但正式 prompts 未同步
+
+- **现象**：`handwrite/prompts/` 已写完，Cursor 仍加载旧版 `skill/prompts/`（早期 AI 短稿）。  
+- **解决（当时）**：覆盖拷贝到 `skill/prompts/`。  
+- **后续固化**：删除 `skill/handwrite/`，**只维护 `skill/prompts/` + `skill/SKILL.md`**，从根上消灭双路径。  
+- **面试升华**：Agent 只读「已注册路径」；工作区草稿 ≠ 运行时配置；临时脚手架用完应收掉。
+
+### 坑 8：流程 Step 编号 vs 提示词 0N 编号混淆
+
+- **现象**：说「Step 2 的打分 json」其实指的是提示词 **02**（职位打分），不是流程 Step 2（画像）。  
+- **教训**：对外文档写全称：「提示词 02（Step 3 搜岗打分）」；输入字段不要只写 Step N。  
+- **面试升华**：多文件 Agent 工作流要有**稳定命名空间**（step / prompt id / artifact 名），否则人机都接错上下文。
+
+### 坑 9：打分刻度中途摇摆（百分制 ↔ 10 分制）
+
+- **现象**：偏好分先按 0–100 设计，加权公式却更适合统一 0–10；示例分数一度混用。  
+- **解决**：全文统一 **10 分制**；`score = round(0.7*skill + 0.3*pref)`。  
+- **面试升华**：评价量表要先定「刻度与加权是否同量纲」，再写规则，否则模型与人都会算乱。
+
 ---
 
 ## 5. 本阶段锻炼的知识点（按面试专题整理）
@@ -130,14 +189,18 @@ Repo2Resume 用 **本地 git 贡献** 生成可溯源简历，并按技能画像
 
 | 知识点 | 落点 |
 |---|---|
-| 系统级流程提示 vs 环节提示 | `SKILL.md` vs `prompts/01–04` |
-| 结构化输出 | 画像/打分要求 JSON schema（prompts 待填） |
-| 防幻觉 / 证据锚定 | 事实清单、`<!-- src -->` |
-| Few-shot 好坏对照 | 计划在 `03_resume_writing` |
-| Writer–Critic 分离 | Step 4 自查 + 最多 2 轮 |
+| 系统级流程提示 vs 环节提示 | `SKILL.md` vs `prompts/01–04`（已定稿启用） |
+| 结构化输出 | 01 画像 JSON；02 岗位打分 JSON（含 `preference_breakdown`） |
+| 防幻觉 / 证据锚定 | 事实清单、`<!-- src -->`；03 few-shot 好坏对照 |
+| Writer–Critic 分离 | 04 只出意见不重写；写作者修订 ≤2 轮 |
+| 可扩展配置默认值 | `job_search_locale` 默认 `zh-CN`，保留改 `en` 等扩展点 |
+| 输出范围裁剪（MVP） | 03 现阶段只出项目经历，不套完整简历模板 |
 
 **可能被问：** 如何降低简历幻觉？  
 **答：** 锁定 fact sheet（git 统计）、强制溯源注释、冲突必问、审稿一票否决无出处数字——不靠「请不要编造」一句话。
+
+**可能被问：** 为什么要把搜岗语种和简历语种拆开？  
+**答：** 搜岗决定站点与 JD 语言（市场），简历语种决定投递正文；二者可不同（例如英文站找加拿大岗、仍写中文经历）。混成一个 `language` 字段会迫使错误默认。
 
 ### 5.3 上下文与信息密度
 
@@ -281,6 +344,12 @@ Repo2Resume 用 **本地 git 贡献** 生成可溯源简历，并按技能画像
 - **简答：** 多个独立系统提示/上下文/工具集的协作。收益是聚焦上下文、分工模型、提示词好维护；代价是贵、慢、难调。  
 - **结合项目：** 阶段 B：Orchestrator + 分析/搜岗子 agent + Writer-Critic；阶段 A 单 Agent 一把梭做对照。
 
+**Q17b：阶段 A 的 03/04「换角色」算多智能体吗？**
+
+- **简答：不算。** 多角色只是同会话切换提示词/视角；多智能体要求**独立上下文（常还有独立工具集）**。  
+- **结合项目：** 现在 Writer→Critic 是「一脑两帽」练协作协议（必须改 / 建议改 / ≤2 轮）；阶段 B 再拆成两个 session，Critic 甚至可以无写文件工具。  
+- **面试金句：** 多角色 ≠ 多智能体；多角色 + 独立上下文/工具/循环 ≈ 多智能体。
+
 **Q18：子 agent 即工具是什么意思？**
 
 - **简答：** 把另一个 agent 的完整小循环封装成主 agent 可调的一个 tool；主 agent 只拿摘要结果，子 agent 自有上下文。  
@@ -344,26 +413,28 @@ Repo2Resume 用 **本地 git 贡献** 生成可溯源简历，并按技能画像
 | 部分 | 角色 |
 |---|---|
 | 产品流程、HITL、事实清单、Step 2/3 边界 | **你主导设计并手写迭代** |
+| 四组 prompts（01–04）定稿与 SKILL 对齐规则 | **你主导手写**（脚手架教练 + 评审迭代）；含 locale 拆分、打分公式、仅项目经历等产品决策 |
 | `git_stats.py`、早期 prompt/模板草稿 | AI 辅助生成，你验收与纠偏（如 merge 口径、author 过滤） |
-| 定稿清洗 `SKILL.md` | 在你手写稿基础上结构化润色，产品决策仍是你的 |
+| 定稿清洗 `SKILL.md`、prompts 同步与复盘自动化 Skill | 在你决策基础上结构化落地；产品取舍仍是你的 |
 
 面试强调：**你能讲清为什么这样设计、踩过什么坑、如何验收**，而不是每一行都手打。
 
 ---
 
-## 8. 下一步（A1 收尾 → A2）
+## 8. 下一步（进入 Phase A2）
 
-1. 按脚手架手写 `handwrite/prompts/01–04`，定稿拷到 `skill/prompts/`。  
-2. 用 `test_repos/` 跑通全流程 ≥1 次，再按 A2 做 ≥3 轮迭代。  
-3. 归档 `runs/` + 写一页「哪一环最弱」结论 → 作为阶段 B 评测种子。
+1. ~~手写 prompts 并拷到 `skill/prompts/`~~ ✅ 已完成。  
+2. 在 Cursor 触发 Repo2Resume Skill，用 `test_repos/` 或真实仓跑全流程 ≥ **3** 轮。  
+3. 归档 `skill/runs/`（stats / 画像 / 打分 / 项目经历草稿 / meta）+ 记录失败案例并改提示词。  
+4. 写一页「哪一环最弱」结论；Gate ≈ 70 分再进阶段 B。
 
 ---
 
 ## 9. 30 秒速记卡
 
-- **做了什么：** Cursor Skill 把「git → 画像 → 职位 → 可溯源简历」写成可执行流程。  
-- **核心设计：** 事实清单 + HITL + Step2 方向探索 / Step3 真实搜岗。  
-- **踩坑：** 脚手架当定稿、description 写错、口述覆盖统计、异常写成空中楼阁。  
-- **学到什么：** Skill 原型、提示词分层、防幻觉、人机门禁、先验证再造 harness。  
+- **做了什么：** Cursor Skill 把「git → 画像 → 职位 → 可溯源项目经历」写成可执行流程。  
+- **核心设计：** 事实清单 + HITL + Step2 方向探索 / Step3 真实搜岗；Step4 现阶段只出项目经历。  
+- **踩坑：** 脚手架当定稿、description 写错、口述覆盖统计、异常空中楼阁、handwrite/正式双路径未同步（已删 handwrite 固化）、Step/0N 编号混淆、打分刻度混用。  
+- **学到什么：** Skill 原型、提示词分层、防幻觉、人机门禁、先验证再造 harness；**多角色 ≠ 多智能体**；运行时路径 vs 工作区。  
 - **必背定义：** Skill ≠ Agent；Agent = Model + Harness；用事实清单+溯源+HITL 治幻觉。  
-- **下一步：** 手写四组 prompts → A2 真跑 → 阶段 B 手写 agent loop。
+- **下一步：** Phase A2 真跑 ≥3 轮 → Gate 通过 → 阶段 B 手写 agent loop。

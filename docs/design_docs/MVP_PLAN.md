@@ -75,6 +75,8 @@ repo2resume chat                              # 对话中完成：分析 → 荐
 
 ### Phase A2 — 真实数据迭代（0.5-1 天）
 
+> 详细设计与执行流程见 [`docs/design_docs/PhaseA/02_phase_a2_iteration.md`](./PhaseA/02_phase_a2_iteration.md)。
+
 - [ ] **【手写】** 用自己的真实仓库跑全流程 ≥ 3 轮（人工流程）
 - [ ] **【手写】** 每轮记录失败案例并修改提示词（幻觉 / 亮点选错 / 语气问题分类记录）
 - [ ] **【AI 生成】** 归档所有输入输出到 `skill/runs/`：git 统计 JSON、JD、生成的简历、修改意见 → 阶段 B 评测集种子
