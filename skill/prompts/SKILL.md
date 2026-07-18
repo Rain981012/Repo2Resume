@@ -5,6 +5,8 @@ description: 分析本地 git 仓库中的个人贡献,生成技能画像,搜索
 
 # Repo2Resume:从本地代码到定制简历
 
+> **权威流程以仓库根下 [`../SKILL.md`](../SKILL.md) 为准**；本文件仅为 prompts 目录内速览，若与根 SKILL 冲突以根 SKILL 为准。
+
 五步流程,三个必须停下等用户确认的节点(标注 ⏸)。全程遵守底部的事实清单规则。
 
 ```
@@ -26,24 +28,24 @@ description: 分析本地 git 仓库中的个人贡献,生成技能画像,搜索
 python3 scripts/git_stats.py <repo1> <repo2> ... --author <email> --output runs/<今天日期>/stats.json
 ```
 
-3. 读取输出 JSON。注意 `errors` 与 `warning` 字段:某仓库作者 commit 为 0 时,向用户核对邮箱拼写而不是跳过。
+1. 读取输出 JSON。注意 `errors` 与 `warning` 字段:某仓库作者 commit 为 0 时,向用户核对邮箱拼写而不是跳过。
 
 ## Step 2:技能画像 ⏸
 
 按 [prompts/01_skill_profile.md](prompts/01_skill_profile.md) 把统计 JSON 汇总为结构化画像。
 
-**⏸ 展示画像并逐条确认**,重点让用户核对主方向判断和 `gaps_or_cautions`。用户修正后更新画像再继续。
+**⏸ 展示画像并逐条确认**,重点让用户核对主方向、分类后的 `tech_stack` 和 `caution`。用户修正后更新画像再继续。
 
 ## Step 3:职位搜索与打分 ⏸
 
-按 [prompts/02_job_search.md](prompts/02_job_search.md):确认城市/远程/级别偏好 → 生成搜索词 → 网络搜索真实在招职位(≥5 个) → 按画像匹配度打分排序展示。用户也可直接粘贴 JD 参与打分。
+按 [02_job_search.md](02_job_search.md):确认城市/远程/级别/`top_n`(默认5,最多10) → 生成搜索词(含大厂专项) → 网络搜索真实在招职位(**≥50**) → 两套 Top-N → 询问是否继续搜更多。用户也可直接粘贴 JD 参与打分。
 
 **⏸ 用户选定目标职位**后继续。
 
 ## Step 4:生成简历草稿 + 自我审稿
 
-1. 按 [prompts/03_resume_writing.md](prompts/03_resume_writing.md) 挑亮点、写 bullet,套用 [templates/resume.md.j2](templates/resume.md.j2) 的结构。个人信息(姓名/联系方式/教育/工作经历)向用户询问。
-2. 草稿完成后**立即**按 [prompts/04_critic_review.md](prompts/04_critic_review.md) 切换审稿视角自查,修复"必须修改"项。审稿-修订最多 2 轮。
+1. 按 [03_resume_writing.md](03_resume_writing.md) 写**仅项目经历**(严格 STAR、每条2–4句；正文禁止占比/commit 数/免责声明)。现阶段不要套完整简历模板。
+2. 草稿完成后**立即**按 [04_critic_review.md](04_critic_review.md) 切换审稿视角自查,修复"必须修改"项。审稿-修订最多 2 轮。
 
 ## Step 5:迭代修改与导出 ⏸
 
