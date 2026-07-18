@@ -1,0 +1,47 @@
+# {{ name }}
+
+{{ city }} · {{ email }} · {{ phone }}{% if github %} · [GitHub]({{ github }}){% endif %}{% if linkedin %} · [LinkedIn]({{ linkedin }}){% endif %}
+
+> 求职意向:{{ target_title }}
+
+## 技能
+
+- **主力方向**:{{ primary_direction }}(如: Python 后端,占个人代码贡献 {{ primary_share }}%)
+- **语言**:{{ languages }}
+- **技术栈**:{{ tech_stack }}
+
+## 项目经历
+
+{% for p in projects %}
+### {{ p.name }}{% if p.role %} — {{ p.role }}{% endif %}  <sub>{{ p.period }}</sub>
+
+{{ p.one_liner }}{% if p.repo_url %}([源码]({{ p.repo_url }})){% endif %}
+
+{% for b in p.bullets %}
+- {{ b.text }} <!-- src: {{ b.source }} -->
+{% endfor %}
+{% endfor %}
+
+## 工作经历
+
+{% for w in work_experience %}
+### {{ w.company }} — {{ w.title }}  <sub>{{ w.period }}</sub>
+
+{% for b in w.bullets %}
+- {{ b }}
+{% endfor %}
+{% endfor %}
+
+## 教育
+
+{% for e in education %}
+- **{{ e.school }}**,{{ e.degree }},{{ e.period }}
+{% endfor %}
+
+<!--
+使用说明(阶段 A 由宿主 agent 手工填充,阶段 B 由 render.py 用 Jinja2 渲染):
+- 项目按与目标 JD 的相关度降序排列
+- 每条项目 bullet 必须带 <!-- src --> 溯源注释;投递前可一键删除注释
+- 工作经历/教育来自用户口述,不在 git 统计范围内,无需溯源
+- 用户未提供的字段保留 {{ 占位符 }} 提醒补填
+-->

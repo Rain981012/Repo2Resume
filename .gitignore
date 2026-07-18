@@ -1,0 +1,20 @@
+# 阶段 A 运行产物:包含个人简历、JD 等隐私数据,不入库
+skill/runs/*
+!skill/runs/.gitkeep
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# 临时测试
+.tmp-*
+
+# macOS
+.DS_Store
+
+# JetBrains IDE（本机项目配置，不入库）
+.idea/
+
+# Phase A 测试用仓库(本地私有数据,不入库)
+test_repos/

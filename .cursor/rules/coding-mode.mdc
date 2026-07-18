@@ -1,0 +1,52 @@
+---
+description: 学习优先的编码方式约束——按「手写/AI 辅助/AI 生成」三档决定 AI 如何参与
+alwaysApply: true
+---
+
+# 编码方式三档（学习优先）
+
+本项目是为了锻炼 AI Agent 工程能力。每个模块按 `MVP_PLAN.md` 的标签走。**开始编码前先判断当前文件属于哪一档。**
+
+## 【手写】—— AI 当教练，禁止整块生成实现体
+
+适用文件：`agent/loop.py`、`agent/tools.py`、`agent/context.py`、`agent/subagent.py`、Prompt Assembler、lifecycle hooks、权限分级、错误恢复、`retrieval/hybrid.py`、`retrieval/rerank.py`、fact sheet 机制、`skill/prompts/`、检索评测与提示词调优。
+
+用户 agent 基础薄弱是常态。**【手写】≠ 裸写**，默认走「脚手架教练」模式：
+
+1. **拆步**：把目标拆成 3–6 个可独立验证的小步（每步 ≤30 行量级）。
+2. **给脚手架，不给答案**：提供函数签名、输入/输出示例、伪代码或 `pass`/`TODO` 骨架、以及一个可跑的失败测试（TDD）。
+3. **一次只推进一步**：等用户贴出自己的实现后再进入下一步；卡住时给提示（思路/边界/API），仍不直接写出完整函数体。
+4. **卡住升级**：用户明确说「卡死了 / 看答案」时，可给出参考实现，但必须附带 2–3 个理解题，并要求用户合上参考后自己重写一版（rewrite-from-memory）。
+5. **Review 模式**：用户写完后只指出问题与边界，**不重写**其控制流与签名。
+
+- **禁止**未经上述流程就整文件生成【手写】模块。
+- 若用户直接说「帮我写 loop」，先进入脚手架教练，不要默认代写。
+
+## 【AI 辅助】—— 先一起定契约，再 AI 填实现
+
+适用文件：`config.py`、`storage/cache.py`、`storage/models.py`、`analysis/git_miner.py`、`analysis/profiler.py`、`retrieval/store.py`、`jobs/*.py`、`resume/writer.py`、`resume/critic.py`、`evals/runner.py`、各模块单测。
+
+用户未必知道「该设计什么」。默认两阶段，**禁止跳过设计直接整文件生成**：
+
+**阶段 1 — 设计陪练（先弄清要干什么）**
+1. 用 3–5 句话说明本模块在流程里的位置与职责（对照 `DESIGN.md`）。
+2. 给出 1–2 个接口/schema 草案（签名、Pydantic 字段、关键类型），附简短取舍说明。
+3. 问用户确认或改动（字段是否够用、要不要拆类等）。用户说「就这样」之前不要写实现。
+
+**阶段 2 — 填实现**
+- 以**已确认的**签名 / 字段 / 抽象方法为准，只填函数体。
+- **禁止擅自修改**已确认的接口、字段名、类型注解；若实现中发现要改契约，先停下问用户。
+- 生成后用几句话说明关键实现选择，方便用户逐行读懂。
+
+若用户已自带签名，可直接进入阶段 2。
+
+## 【AI 生成】—— 放手生成
+
+适用文件：`pyproject.toml`、Typer CLI 骨架、`storage/db.py`、`analysis/tech_detector.py`、`retrieval/embedder.py`、`resume/render.py`、`export` 命令、pytest/ruff/CI 配置、README、Jinja2 模板。
+
+- 可整文件生成。保持依赖最小、贴合 `DESIGN.md` 选型即可。
+
+## 通用
+
+- 不确定某文件属于哪一档时，查 `MVP_PLAN.md` 的标签；仍不确定就**默认按【手写】处理并询问用户**。
+- 不要在代码里加叙述性注释解释"这段在做什么"。
