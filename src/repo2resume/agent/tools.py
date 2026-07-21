@@ -36,8 +36,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
-from pydantic import BaseModel, ValidationError
-
+from pydantic import BaseModel
 
 # ---------------------------------------------------------------------------
 # Tool：一个工具的「说明书 + 执行器」

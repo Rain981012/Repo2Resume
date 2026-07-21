@@ -179,13 +179,22 @@ class AgentLoop:
         self._context._system = self._assembler.build(state)
         
         #空3
-        for i in range(self._max_rounds):
+        for _ in range(self._max_rounds):
           messages = self._context.messages()
           tools = self._registry.list_schemas()
           resp = self._llm(messages, tools)
           if resp.tool_calls:
-            tc_dicts = [{"id": tc.id, "type": "function", "function": {"name": tc.name, "arguments": str(tc.arguments)}}
-                         for tc in resp.tool_calls]
+            tc_dicts = [
+                {
+                    "id": tc.id,
+                    "type": "function",
+                    "function": {
+                        "name": tc.name,
+                        "arguments": str(tc.arguments),
+                    },
+                }
+                for tc in resp.tool_calls
+            ]
             self._context.add("assistant", "", tool_calls=tc_dicts)
             self._execute_tools(resp.tool_calls)
             continue

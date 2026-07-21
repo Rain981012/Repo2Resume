@@ -32,7 +32,9 @@ def test_single_tool_then_reply() -> None:
     def llm(messages, tools):
         calls["n"] += 1
         if calls["n"] == 1:
-            return LLMResponse(tool_calls=[ToolCall(id="c1", name="add", arguments={"a": 2, "b": 3})])
+            return LLMResponse(
+                tool_calls=[ToolCall(id="c1", name="add", arguments={"a": 2, "b": 3})]
+            )
         # 第二轮应能看到 tool 结果 "5"
         last = messages[-1]
         assert last["role"] == "tool"

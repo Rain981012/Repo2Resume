@@ -16,8 +16,8 @@ from rich.table import Table
 from repo2resume import __version__
 from repo2resume.agent.builtins import make_analyze_tool
 from repo2resume.agent.context import ContextManager
-from repo2resume.agent.loop import AgentLoop
 from repo2resume.agent.llm_adapter import make_llm_adapter
+from repo2resume.agent.loop import AgentLoop
 from repo2resume.agent.prompt_assembler import PromptAssembler
 from repo2resume.agent.tools import ToolRegistry
 from repo2resume.analysis.git_miner import AuthorInfo, MineOptions, collect_authors
@@ -29,10 +29,10 @@ from repo2resume.config import (
     load_config,
     save_config,
 )
+from repo2resume.llm.client import LLMClient
 from repo2resume.storage.cache import open_cache
 from repo2resume.storage.db import open_db
 from repo2resume.storage.models import SkillProfile
-from repo2resume.llm.client import LLMClient
 
 app = typer.Typer(
     name="repo2resume",

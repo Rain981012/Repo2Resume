@@ -31,7 +31,10 @@ class AnalyzeRepoParams(BaseModel):
     )
     since: str | None = Field(
         None,
-        description="只统计此日期之后的提交，YYYY-MM-DD；不需要时省略或填 null，不要填字符串 'null'",
+        description=(
+            "只统计此日期之后的提交，YYYY-MM-DD；不需要时省略或填 null，"
+            "不要填字符串 'null'"
+        ),
     )
     stats_only: bool = Field(
         True,
@@ -61,7 +64,7 @@ def _summarize_stats(stats: Any) -> str:
     lines.append(f"total_author_commits: {s.total_author_commits}")
 
     lang_items = sorted(s.overall_language_share.items(), key=lambda kv: -kv[1])
-    lang_str = ", ".join(f"{l} {v:.1%}" for l, v in lang_items[:6])
+    lang_str = ", ".join(f"{lang} {v:.1%}" for lang, v in lang_items[:6])
     lines.append(f"languages: {lang_str}")
 
     if stats.errors:

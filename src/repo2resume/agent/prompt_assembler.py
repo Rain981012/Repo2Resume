@@ -148,7 +148,9 @@ class PromptAssembler:
         """
         parts = [self._base]
         state_text = self._render_state(state)
-        if state_text: parts.append("[当前状态]\n" + state_text)
+        if state_text:
+            parts.append("[当前状态]\n" + state_text)
         tools_text = self._render_tools()
-        if tools_text: parts.append("[可用工具]\n" + tools_text)
+        if tools_text:
+            parts.append("[可用工具]\n" + tools_text)
         return "\n\n".join(parts)

@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from repo2resume.analysis.fact_sheet import build_fact_sheet
 from repo2resume.storage.models import (
     LanguageStat,
