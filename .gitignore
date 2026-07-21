@@ -5,7 +5,16 @@ skill/runs/*
 # Python
 __pycache__/
 *.pyc
+*.pyo
 .venv/
+dist/
+build/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.mypy_cache/
 
 # 临时测试
 .tmp-*
@@ -16,5 +25,10 @@ __pycache__/
 # JetBrains IDE（本机项目配置，不入库）
 .idea/
 
-# Phase A 测试用仓库(本地私有数据,不入库)
-test_repos/
+# 本地私有仓库数据(不入库)
+local_repos/
+
+# 本地密钥（勿提交）
+.env
+.env.*
+!.env.example

@@ -1,10 +1,11 @@
 # Phase A1 实践复盘：Cursor Skill 原型（面试复习稿）
 
 > 项目：Repo2Resume  
-> 阶段：Phase A1 — 搭建 Skill 原型（`SKILL.md` + `git_stats.py` + 四组手写提示词）  
+> 阶段：Phase A1 — 搭建 Skill 原型；**Phase A2 — 真跑 ≥3 轮 + 失败归档 + 一页结论（已并入本文 §2.1 / §10）**  
 > 用途：求职面试时复习「你在 Agent 项目里实际做过什么」+ **AI Agent 岗高频概念题**  
-> 对应文档：`docs/design_docs/DESIGN.md` §0、`docs/design_docs/MVP_PLAN.md` §2 Phase A1  
-> 核心增补：§6 面试问答（Skill / Harness / 幻觉 / RAG / 多智能体 / 评测）
+> 对应文档：`docs/design_docs/DESIGN.md` §0、`docs/design_docs/MVP_PLAN.md` §2 Phase A1–A2  
+> 失败案例真源：`docs/design_docs/PhaseA/a2_failure_cases.md`（14 条，3 轮）  
+> 核心增补：§6 面试问答；§10 A2 一页结论（最弱环节 / 提示词教训 / Gate）
 
 ---
 
@@ -29,32 +30,43 @@ Repo2Resume 用 **本地 git 贡献** 生成可溯源项目经历（后续再套
 
 | Cursor 注册 | ✅ | `.cursor/skills/repo2resume` → `skill/` |
 | 设计文档 | ✅ | `DESIGN.md` / `MVP_PLAN.md` |
-| Phase A2（真实仓库 ≥3 轮迭代） | ⏳ 下一步 | 用正式 prompts 跑全流程、归档 `runs/`、迭代提示词 |
+| Phase A2（真实仓库 ≥3 轮迭代） | ✅ 已完成 | 3 轮真跑 + 14 条失败案例改 prompt；归档 `skill/runs/2026-07-14|16|17/`；一页结论见 §10 |
 
-**四组提示词要点（便于面试口述）：**
+**四组提示词要点（便于面试口述；A2 后口径）：**
 
-| Prompt | 职责 |
+| Prompt | 职责（含 A2 硬化点） |
 |---|---|
-| `01_skill_profile` | 职业规划师；只信 `stats.json`；产出画像 JSON（含 `coding_language`、概括职位类型）；本步不联网搜岗 |
-| `02_job_search` | 招聘匹配分析师；`job_search_locale` 默认 `zh-CN` 可扩展；合计搜 ≥20；10 分制 = 0.7 技能 + 0.3 偏好；选定 JD 后才进 Step 4 |
-| `03_resume_writing` | 只写可复制 Markdown **项目经历**（项目名 + 一句话总结 + bullets）；充实 4–5 条 / 较弱 ≥2 条；强制 `<!-- src -->` |
-| `04_critic_review` | 与写作者分离的 Critic；必须改 / 建议改 / 通过项；写作者修订 ≤2 轮（阶段 A 仍是同会话换角色，非真多智能体） |
+| `01_skill_profile` | 只信 `stats.json`；`highlights_pool` 须超越 commit subject（path/`git show`）；`tech_stack` 分类；字段 `caution` |
+| `02_job_search` | 池 ≥50；双 Top5；过期岗 `score=0`；展示强制详情 URL + 四段 `analysis`；默认可不展示原始分；大厂分层 + 耗时确认 |
+| `03_resume_writing` | 高密度 STAR：`**短标签**：` + 分号；约 80–180 字；正文禁占比/commit/免责声明；强制 `<!-- src -->` |
+| `04_critic_review` | 必须改 / 建议改 / 通过项；同步检查标签密度与 03 禁区；写作者修订 ≤2 轮（阶段 A 同会话换角色） |
 
-**阶段 A 的三个目标里，已推进：**
+**阶段 A 的三个目标：**
 
-1. **流程验证**：主路径已写进 `SKILL.md`（分析 → 画像 → 搜岗 → 项目经历 → 导出）。  
-2. **提示词沉淀**：`SKILL.md` + 四组 prompts 已定稿并装入 `skill/prompts/`，可供 Cursor Skill 加载。  
-3. **数据积累**：归档规范已定（`runs/` + `meta.json`）；**真实跑数在 Phase A2**。
+1. **流程验证**：主路径已写进 `SKILL.md`，并在 Cursor 真跑 ≥3 轮。  
+2. **提示词沉淀**：01–04 + SKILL 经 failure-driven 迭代（见 `a2_failure_cases.md`）。  
+3. **数据积累**：`skill/runs/` 已有三轮种子，供阶段 B evals。
 
-**A1 收尾状态：** 搭建类任务（脚本 / SKILL / 四组 prompts / 注册）已完成；A1 验收「在 Cursor 走完全流程」与 Phase A2 第一轮实跑合并进行即可。
+**A1 / A2 收尾：** 搭建完成 + 真跑迭代完成；Gate 判断见 §10.3。
 
-### 本步交付物（prompts 定稿）
+### 本步交付物
 
 | 路径 | 说明 |
 |---|---|
-| `skill/prompts/01–04.md` | **唯一提示词路径**（手写工作区 `handwrite/` 已删除，避免双份不同步） |
-| `skill/SKILL.md` | Step 4 改为「仅项目经历」；`gaps` 非硬确认；locale / 搜岗默认中文等 |
-| `.cursor/skills/put-in-practice/` | 复盘文档更新 Skill（查漏补缺三块结构） |
+| `skill/prompts/01–04.md` | **唯一提示词路径**（经 A2 三轮改写） |
+| `skill/SKILL.md` | Step 契约与搜岗策略、展示门禁对齐 |
+| `skill/runs/2026-07-14/` 等 | 评测集种子（stats / 画像 / 打分 / 经历草稿） |
+| `docs/design_docs/PhaseA/a2_failure_cases.md` | 14 条分类失败 + 根因层 + 改了哪份 prompt |
+| `.cursor/skills/put-in-practice/` | 复盘文档更新 Skill |
+
+### 2.1 Phase A2 本步完成了什么（对照 MVP 88–91）
+
+| MVP 任务 | 状态 | 证据 |
+|---|---|---|
+| 真实仓库跑全流程 ≥3 轮 | ✅ | 2026-07-14 / 16 / 17 |
+| 每轮记失败并改提示词 | ✅ | 14 cases；改动覆盖 01/02/03/04 + SKILL |
+| 归档到 `skill/runs/` | ✅ | 各轮 `stats` / 画像 / jobs / 简历草稿 |
+| 一页结论（最弱环节 + 关键教训） | ✅ | 本文 §10 |
 
 ---
 
@@ -86,7 +98,7 @@ Repo2Resume 用 **本地 git 贡献** 生成可溯源项目经历（后续再套
 ### 3.5 工程细节
 
 - `git_stats.py` 按 author 过滤、排除 lock/node_modules、多邮箱 OR 语义。  
-- `test_repos/`、`runs/`、`.DS_Store` 进 `.gitignore`。  
+- `local_repos/`、`runs/`、`.DS_Store` 进 `.gitignore`。  
 - PR 自动 description 工作流（开 PR 写 body；后续 push 按 trivial/substantive 决定是否重写）。
 
 ### 3.6 本步：四组 prompts 定稿（做法 · 影响 · 亮点）
@@ -108,6 +120,26 @@ Repo2Resume 用 **本地 git 贡献** 生成可溯源项目经历（后续再套
 - **字段语义拆分**：编程语言 / 简历用语种 / 搜岗市场语种分开，避免「对话用中文就搜中文岗、写中文简历」的隐性耦合。  
 - **可解释打分**：技能分与偏好分分离，`matched_skills` 不塞薪资学历；偏好维可 `unknown` 不进平均。  
 - **Writer–Critic 契约先于多智能体**：阶段 A 同会话换角色练协作模式；阶段 B 再拆独立上下文（见 §6.5 Q17b）。
+
+### 3.7 Phase A2：failure-driven 提示词迭代（做法 · 影响 · 亮点）
+
+**做了什么**
+
+- 用真实仓跑全流程 3 轮，按标签记入 `a2_failure_cases.md`（`profile` / `wrong_highlight` / `tone_style` / `scoring` / `process`）。  
+- 每轮只改一类根因层（01→02→03/04），把「展示契约、工具策略、信息源优先级、Few-shot 好坏例」写进 prompt，而不是口头叮嘱。  
+- 归档三轮 `runs/`，并对照 `templates/简历-伍思远.pdf` 校准简历密度。
+
+**对项目的影响**
+
+- Skill 从「能跑」变成「有可回归的失败表」；阶段 B 的 evals 可直接用这些 case 做 golden / 负例。  
+- 暴露出：**上游空亮点会传导到下游空 bullet**；搜岗是交互与工具摩擦的主战场。  
+- 产品规则（双 Top5、过期岗清零、详情 URL、不展示原始分）进入契约层，避免宿主 Agent「自由发挥」。
+
+**本步亮点（可上面试）**
+
+- **失败分类驱动改 prompt**：先标签化再改文件，避免「感觉不好就整篇重写」。  
+- **根因分层**：Case-2 先修 01 再视复测改 03，体现 pipeline 调试思维。  
+- **Few-shot 比抽象规则更强**：Case-17-3 证明「好例写成叙事」会系统性带偏输出——示例即规范。
 
 ---
 
@@ -169,6 +201,36 @@ Repo2Resume 用 **本地 git 贡献** 生成可溯源项目经历（后续再套
 - **解决**：全文统一 **10 分制**；`score = round(0.7*skill + 0.3*pref)`。  
 - **面试升华**：评价量表要先定「刻度与加权是否同量纲」，再写规则，否则模型与人都会算乱。
 
+### 坑 10：stats / subject 当亮点（空壳 highlights）
+
+- **现象**（Case-1/2）：`highlights_pool` 只有「重构前端 +1223 行」；Step4 只能写出框架空话。  
+- **教训**：贡献统计只能证「动过」，不能证「做了什么」；必须强制 path/`git show` 级 claim，写不出就进 `caution`。  
+- **面试升华**：RAG/Agent 里「检索到了相关 commit」≠「有可写事实」；要区分 *coverage* 与 *claim granularity*。
+
+### 坑 11：搜岗环节契约过松（过期岗 / 无 URL / 原始分噪音）
+
+- **现象**（Case-3–7）：截止岗进 Top、无链接、秀分数、分析过短、只有单一 Top5。  
+- **教训**：对用户展示面要写进 prompt（`recommend` 门禁、详情 URL、双 Top、四段 `analysis`、分数只归档）。  
+- **面试升华**：Agent 产品的 UX 失败，很多时候是 **缺少输出契约**，不是模型「不聪明」。
+
+### 坑 12：工具策略未约束 → HITL 授权疲劳
+
+- **现象**（Case-8）：搜岗频繁 WebFetch，用户反复点同意。  
+- **教训**：先搜索摘要建池，仅对打分池批量拉完整 JD；并行、少轮次。  
+- **面试升华**：工具调用成本 = 延迟 + 权限摩擦；要在 Skill 层做 **tool budget**。
+
+### 坑 13：JD 正文 vs 页面状态（信息源优先级）
+
+- **现象**（Case-17-2）：页面写「已结束」但正文截止日期仍在未来 → 误判可推荐；薪资在侧栏未采入；Top 链到招聘首页。  
+- **教训**：`listing_status` 以页面自身状态为准；薪资采「页面任意可见」；Top-N URL 必须是职位详情页。  
+- **面试升华**：网页抽取要定义 **权威字段优先级**，否则模型会挑对自己友好的片段。
+
+### 坑 14：Few-shot「好例」写成叙事体
+
+- **现象**（Case-17-3）：规则写 STAR，示例却是「业务需要…围绕该目标…」长因果句 → 输出系统性偏散文。  
+- **教训**：示例密度必须对齐真实投递简历；原好例降级为坏例；Critic 同步查标签/分号。  
+- **面试升华**：在提示词工程里，**示例的权重常高于条文**；坏示例是静默的负向训练。
+
 ---
 
 ## 5. 本阶段锻炼的知识点（按面试专题整理）
@@ -195,12 +257,19 @@ Repo2Resume 用 **本地 git 贡献** 生成可溯源项目经历（后续再套
 | Writer–Critic 分离 | 04 只出意见不重写；写作者修订 ≤2 轮 |
 | 可扩展配置默认值 | `job_search_locale` 默认 `zh-CN`，保留改 `en` 等扩展点 |
 | 输出范围裁剪（MVP） | 03 现阶段只出项目经历，不套完整简历模板 |
+| Failure-driven 迭代 | A2：标签化失败 → 改根因层 prompt →（待）复测回归 |
+| 展示契约 / 工具预算 | 02：详情 URL、双 Top、少 Fetch；分数只进 JSON |
+| 信息源优先级 | 页面 `listing_status` > JD 文本日期；薪资「页面可见即采」 |
+| Few-shot 即规范 | 03：叙事好例 → 系统性散文；改为短标签+分号密度例 |
 
 **可能被问：** 如何降低简历幻觉？  
 **答：** 锁定 fact sheet（git 统计）、强制溯源注释、冲突必问、审稿一票否决无出处数字——不靠「请不要编造」一句话。
 
 **可能被问：** 为什么要把搜岗语种和简历语种拆开？  
 **答：** 搜岗决定站点与 JD 语言（市场），简历语种决定投递正文；二者可不同（例如英文站找加拿大岗、仍写中文经历）。混成一个 `language` 字段会迫使错误默认。
+
+**可能被问：** 提示词怎么迭代才不像玄学？  
+**答：** 先跑真实任务，把失败打标签（幻觉/亮点/语气/打分/流程），每次只改根因层文件并归档 `runs/`；阶段 B 再把同一批 case 做成自动 eval。A2 的 14 条表就是这套方法的产物。
 
 ### 5.3 上下文与信息密度
 
@@ -222,6 +291,16 @@ Repo2Resume 用 **本地 git 贡献** 生成可溯源项目经历（后续再套
 - 评测集 / LLM-as-judge 自动化  
 
 阶段 A 的价值是：**带着「见过单 Agent 硬扛」的体感**，再去做这些。
+
+### 5.6 A2 新增面试点（短答）
+
+| 概念 | 本项目练法 | 可背一句 |
+|---|---|---|
+| 上游误差传导 | 01 空壳亮点 → 03 空话 bullet | Pipeline 调试先修源头 artifact |
+| 输出契约 | 02 强制 url / analysis / recommend 门禁 | 对用户可见面必须 schema 化 |
+| Tool budget | 摘要建池再批量 fetch | 控制调用次数=控延迟与授权摩擦 |
+| 权威字段优先级 | 页面状态 > JD 截止日期字符串 | 抽取冲突时先定谁说了算 |
+| 示例对齐 | 好例叙事 → 坏例 B；新好例高密度 | Few-shot 是隐性系统提示 |
 
 ---
 
@@ -414,6 +493,7 @@ Repo2Resume 用 **本地 git 贡献** 生成可溯源项目经历（后续再套
 |---|---|
 | 产品流程、HITL、事实清单、Step 2/3 边界 | **你主导设计并手写迭代** |
 | 四组 prompts（01–04）定稿与 SKILL 对齐规则 | **你主导手写**（脚手架教练 + 评审迭代）；含 locale 拆分、打分公式、仅项目经历等产品决策 |
+| A2 三轮真跑、失败分类、按根因层改 prompt | **你主导**；结论与 Gate 判断见 §10 |
 | `git_stats.py`、早期 prompt/模板草稿 | AI 辅助生成，你验收与纠偏（如 merge 口径、author 过滤） |
 | 定稿清洗 `SKILL.md`、prompts 同步与复盘自动化 Skill | 在你决策基础上结构化落地；产品取舍仍是你的 |
 
@@ -421,20 +501,78 @@ Repo2Resume 用 **本地 git 贡献** 生成可溯源项目经历（后续再套
 
 ---
 
-## 8. 下一步（进入 Phase A2）
+## 8. 下一步
 
-1. ~~手写 prompts 并拷到 `skill/prompts/`~~ ✅ 已完成。  
-2. 在 Cursor 触发 Repo2Resume Skill，用 `test_repos/` 或真实仓跑全流程 ≥ **3** 轮。  
-3. 归档 `skill/runs/`（stats / 画像 / 打分 / 项目经历草稿 / meta）+ 记录失败案例并改提示词。  
-4. 写一页「哪一环最弱」结论；Gate ≈ 70 分再进阶段 B。
+1. ~~手写 prompts 并拷到 `skill/prompts/`~~ ✅  
+2. ~~真跑 ≥3 轮 + 归档 `runs/` + failure 表~~ ✅  
+3. ~~一页结论（最弱环节 / 关键教训）~~ ✅ 见 §10  
+4. ~~阶段 B Phase 0–1（CLI 分析 + fact sheet）~~ ✅ 见 `docs/put_in_practice/PhaseB/01_phase_1_repo_analysis.md`  
+5. **建议补一轮针对性复测**（同仓 NLP_GAME）：验证 Case-1 空壳亮点、Case-3 过期岗清零、Case-17-2 页面状态优先级——表内多数仍标「待复测」（可与 evals 并行）。  
+6. **下一站：阶段 B Phase 2** — 手写 agent loop；evals 吃 `runs/` 种子。
 
 ---
 
 ## 9. 30 秒速记卡
 
-- **做了什么：** Cursor Skill 把「git → 画像 → 职位 → 可溯源项目经历」写成可执行流程。  
-- **核心设计：** 事实清单 + HITL + Step2 方向探索 / Step3 真实搜岗；Step4 现阶段只出项目经历。  
-- **踩坑：** 脚手架当定稿、description 写错、口述覆盖统计、异常空中楼阁、handwrite/正式双路径未同步（已删 handwrite 固化）、Step/0N 编号混淆、打分刻度混用。  
-- **学到什么：** Skill 原型、提示词分层、防幻觉、人机门禁、先验证再造 harness；**多角色 ≠ 多智能体**；运行时路径 vs 工作区。  
+- **做了什么：** Cursor Skill 跑通「git → 画像 → 职位 → 可溯源项目经历」；A2 三轮真跑 + 14 条失败驱动改 prompt。  
+- **核心设计：** 事实清单 + HITL + 展示/工具契约；Step4 只出项目经历。  
+- **最弱环：** **02 搜岗**（失败条数最多）；简历内容瓶颈则是 **01 空壳亮点 → 03 空话**。  
+- **踩坑：** 脚手架当定稿、双路径、subject 当亮点、过期岗进 Top、Fetch 授权疲劳、页面状态 vs JD 日期、Few-shot 叙事带偏。  
+- **学到什么：** Skill 原型、failure-driven 迭代、输出契约、tool budget、示例即规范；**多角色 ≠ 多智能体**。  
 - **必背定义：** Skill ≠ Agent；Agent = Model + Harness；用事实清单+溯源+HITL 治幻觉。  
-- **下一步：** Phase A2 真跑 ≥3 轮 → Gate 通过 → 阶段 B 手写 agent loop。
+- **下一步：** Phase 2 手写 loop；evals 吃 `runs/`；A2 表内「待复测」可并行补。
+
+---
+
+## 10. Phase A2 一页结论（对应 MVP_PLAN 88–91）
+
+> 证据：`docs/design_docs/PhaseA/a2_failure_cases.md`（14 cases，轮次 1–3）+ `skill/runs/2026-07-14|16|17/`。
+
+### 10.1 哪一环质量最弱？
+
+**按失败条数与迭代面：Step 3 / 提示词 `02_job_search` 最弱。**
+
+| 证据维度 | 说明 |
+|---|---|
+| 数量 | 14 条里约一半主根因在 02/SKILL Step3（过期岗、无 URL、原始分噪音、单 Top、分析过短、Fetch 摩擦、池过小、大厂范围失控、薪资/时效误判、列表页 URL） |
+| 产品面 | 搜岗是唯一重度联网+授权环节，工具策略与展示契约一旦缺失，用户体感立刻崩 |
+| 对比 | 01/03 问题更「致命于简历质量」，但条数更少、且 Case-2 已证明多为 **上游传导** |
+
+**简历终稿质量的瓶颈（Gate 相关）则是另一条链：**
+
+1. **01 `highlights_pool` 空壳**（subject+行数，无 path/`git show`）→  
+2. **03 只能写框架句**（Case-1→2）→  
+3. 即便修了具体点，**03 Few-shot 叙事体**仍会把密度写成散文（Case-16-3、17-3）。
+
+面试可说成两句话：
+
+> 流程摩擦最大的是搜岗（02）；内容能不能写到 70 分，取决于画像亮点是否可核对，以及写作示例是否对齐真实简历密度。
+
+### 10.2 提示词的关键教训（可执行）
+
+1. **先修上游 artifact，再骂下游写作。** 01 亮点不可用时，03 再怎么 STAR 也只能空转；调试顺序：stats → highlights → bullets。  
+2. **「可核对」写进硬规则，不要只写「要具体」。** 禁止 subject+行数凑数；写不出进 `caution`，禁止硬编。  
+3. **对用户可见面 = 输出契约。** url / 双 Top / 四段 analysis / 不展示原始分 / `recommend:false⇒score=0` 必须写进 02，不能靠模型自觉。  
+4. **工具有预算。** 摘要建池 → 仅对打分池拉 JD；大厂池分层，扩大范围前确认耗时——否则 HITL 授权疲劳会杀死可用性。  
+5. **定义信息源优先级。** 页面「已结束」> JD 文本未来日期；薪资采页面任意可见；Top URL 必须是详情页。  
+6. **Few-shot 权重 ≥ 条文。** 「好例」若是叙事长句，输出会系统性散文化；示例要按投递简历密度写，并让 Critic 查同一套禁区。
+
+### 10.3 Gate（~70 分）判断
+
+| 项 | 判断 |
+|---|---|
+| 流程能跑通 + HITL | ✅ 三轮已跑 |
+| 失败可分类、可改 prompt | ✅ 14 cases 已落地规则 |
+| 归档可做 eval 种子 | ✅ 三轮 `runs/` |
+| 质量回归闭环 | ⚠️ 表内多数 **待复测** |
+| **Gate 结论** | **有条件通过**：契约与流程已达「可进 B 搭脚手架」；正式宣称「简历稳定 ≥70」建议先复测 Case-1 / Case-3 / Case-17-2 三类。若你主观抽查终稿已达 70，可直接开 B，把复测并进 B 的 evals。 |
+
+### 10.4 带给阶段 B 的种子
+
+| 轮次 | 路径 | 适合当什么 |
+|---|---|---|
+| Round 1 | `skill/runs/2026-07-14/` | 负例黄金：空壳 highlights、过期岗进 Top、无 URL、Fetch 过多 |
+| Round 2 | `skill/runs/2026-07-16/` | 画像展示（tech_stack/`caution`）、简历禁区（占比/commit）、池规模与续搜交互 |
+| Round 3 | `skill/runs/2026-07-17/` | 页面状态 vs JD 日期、详情 URL、高密度 STAR vs 叙事体（对照 `templates/简历-伍思远.pdf`） |
+
+阶段 B 优先把 **Case-1 / 3 / 17-2 / 17-3** 做成自动断言或 LLM-as-judge 条目（格式、溯源、过期清零、URL 粒度、标签密度）。
