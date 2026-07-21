@@ -26,7 +26,9 @@ docs/put_in_practice/
 ├── README.md                 ← 本说明
 ├── PhaseA/
 │   └── 01_phase_a1_skill_prototype.md
-├── PhaseB/                   ← 阶段 B 再开
+├── PhaseB/
+│   ├── 01_phase_1_repo_analysis.md   ← Phase 0/1：CLI 分析 + fact sheet 验收
+│   └── 02_phase_2_harness.md          ← Phase 2：手写 agent loop + chat + 会话持久化
 └── …
 ```
 
@@ -36,4 +38,5 @@ docs/put_in_practice/
 更新 put_in_practice：我完成了 Phase A1 四组 prompts 并同步到 skill/prompts/
 复盘一下刚改的 job_search_locale 默认中文，补进 A1 文档
 开始 A2 第一轮真跑后，新建或更新 PhaseA 的 A2 复盘文档
+复盘 Phase 1 验收，写到 docs/put_in_practice/PhaseB
 ```

@@ -1,0 +1,49 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "repo2resume"
+version = "0.1.0"
+description = "CLI agent: local git repos → skill profile → jobs → tailored Markdown resume"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+authors = [{ name = "Repo2Resume contributors" }]
+dependencies = [
+    "typer>=0.12",
+    "rich>=13",
+    "pydantic>=2",
+    "litellm>=1.40",
+    "fastapi>=0.110",
+    "orjson>=3.9",
+    "redis>=5",
+    "tenacity>=8",
+    "tomli-w>=1.0",
+    "pydriller>=2.6",
+    "jinja2>=3.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8",
+    "ruff>=0.6",
+]
+
+[project.scripts]
+repo2resume = "repo2resume.cli:app"
+
+[tool.hatch.build.targets.wheel.force-include]
+"src/repo2resume/prompts" = "repo2resume/prompts"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]

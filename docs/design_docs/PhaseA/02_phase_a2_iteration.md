@@ -28,14 +28,14 @@
 在 Cursor 中触发 Repo2Resume Skill，例如：
 
 ```text
-用 Repo2Resume Skill，根据 test_repos（或我指定的真实仓）分析我的贡献，
+用 Repo2Resume Skill，根据 local_repos（或我指定的真实仓）分析我的贡献，
 走完全流程：统计 → 画像 → 搜岗 → 选定 JD → 项目经历 → 审稿 → 归档到 skill/runs/。
 我的 git author 是：…
 ```
 
 仓库建议：
 
-- 优先 `test_repos/` 内已有仓（含多人协作仓，练 `--author`）
+- 优先 `local_repos/` 内已有仓（含多人协作仓，练 `--author`）
 - 至少 1 轮用「你真正想投」的真实本地仓
 - 3 轮尽量有差异：换仓 / 换 JD / 换 `job_search_locale`（如一轮 `zh-CN`，一轮试 `en`）
 

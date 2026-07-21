@@ -28,8 +28,8 @@ description: >
 ## Step 1: 分析仓库
 
 1. **确定仓库路径**（用户未指定时按优先级自动发现，可再请用户增删）：
-   1. 先读本仓库下 `test_repos/` 内的 git 仓库；
-   2. 再读与 Repo2Resume 同级目录下的其他 project（已在 `test_repos/` 中出现过的路径不要重复分析）；
+   1. 先读本仓库下 `local_repos/` 内的 git 仓库；
+   2. 再读与 Repo2Resume 同级目录下的其他 project（已在 `local_repos/` 中出现过的路径不要重复分析）；
    3. 若以上皆空，询问用户自行提供仓库路径。
 2. **确定 author**：询问用于过滤的 git 作者名/邮箱（可多个）。
    多人仓库必须用 `--author` 只统计用户本人；多邮箱多次传入 `--author`。
