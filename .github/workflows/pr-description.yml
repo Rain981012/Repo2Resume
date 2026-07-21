@@ -27,6 +27,11 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_TITLE: ${{ github.event.pull_request.title }}
           PR_BODY: ${{ github.event.pull_request.body }}
+          # LLM-driven description (OpenAI-compatible endpoint; default: Zhipu GLM).
+          # LLM_API_KEY absent → script falls back to deterministic commit-subject bullets.
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+          LLM_BASE_URL: ${{ vars.LLM_BASE_URL || 'https://open.bigmodel.cn/api/paas/v4/chat/completions' }}
+          LLM_MODEL: ${{ vars.LLM_MODEL || 'glm-4.5-flash' }}
         run: |
           chmod +x .github/scripts/update_pr_description.sh
           .github/scripts/update_pr_description.sh

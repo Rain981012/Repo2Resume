@@ -135,7 +135,97 @@ suggest_title() {
   echo "$first"
 }
 
+# Generate PR body via an OpenAI-compatible chat completions endpoint (default: Zhipu GLM).
+# Falls back (returns non-zero) on any failure so the caller can use the deterministic generator.
+#
+# Config (env):
+#   LLM_API_KEY   - required for the LLM path; empty → caller falls back
+#   LLM_BASE_URL  - chat completions endpoint (default: Zhipu)
+#   LLM_MODEL     - model id (default: glm-4.5-flash)
+generate_body_llm() {
+  local api_key="${LLM_API_KEY:-}"
+  local base_url="${LLM_BASE_URL:-https://open.bigmodel.cn/api/paas/v4/chat/completions}"
+  local model="${LLM_MODEL:-glm-4.5-flash}"
+
+  if [[ -z "$api_key" ]]; then
+    echo "no LLM_API_KEY; using deterministic fallback" >&2
+    return 1
+  fi
+  if ! command -v jq >/dev/null 2>&1; then
+    echo "jq not found; using deterministic fallback" >&2
+    return 1
+  fi
+
+  local commits diffstat diff_body
+  commits="$(git log --format='- %s' "${BASE_SHA}..${HEAD_SHA}" | grep -v '^- Merge' || true)"
+  diffstat="$(git diff --stat "${BASE_SHA}...${HEAD_SHA}" || true)"
+  diff_body="$(git diff "${BASE_SHA}...${HEAD_SHA}" || true)"
+  # Cap diff size to keep the request small and within context limits.
+  if [[ ${#diff_body} -gt 60000 ]]; then
+    diff_body="${diff_body:0:60000}
+...[diff truncated]..."
+  fi
+
+  local sys_prompt user_prompt
+  sys_prompt='You write concise, factual GitHub pull request descriptions from a branch diff. Output ONLY Markdown, no preamble, no code fences. Use exactly this structure:
+## Summary
+- <one bullet per completed change; for each major change add a short clause on what it does and why it matters>
+## Test plan
+- [ ] <concrete checklist item>
+Do not invent files or changes not present in the diff.'
+  user_prompt="Pull request branch diff against base.
+
+Commits in this PR:
+${commits}
+
+Diffstat:
+${diffstat}
+
+Full diff (may be truncated):
+${diff_body}
+
+Write the PR description now."
+
+  local payload
+  payload="$(jq -n \
+    --arg sys "$sys_prompt" \
+    --arg user "$user_prompt" \
+    --arg model "$model" \
+    '{model: $model, temperature: 0.3, max_tokens: 1200,
+      messages: [{role: "system", content: $sys}, {role: "user", content: $user}]}')" \
+    || { echo "jq build failed; using deterministic fallback" >&2; return 1; }
+
+  local resp http_code body
+  resp="$(curl -sS --max-time 60 -w $'\n%{http_code}' -X POST "$base_url" \
+    -H "Authorization: Bearer $api_key" \
+    -H "Content-Type: application/json" \
+    -d "$payload" 2>&1)" || { echo "curl failed; using deterministic fallback" >&2; return 1; }
+  http_code="$(printf '%s' "$resp" | tail -1)"
+  body="$(printf '%s' "$resp" | sed '$d')"
+  if [[ "$http_code" != "200" ]]; then
+    echo "LLM HTTP $http_code; using deterministic fallback" >&2
+    return 1
+  fi
+
+  local content
+  content="$(printf '%s' "$body" | jq -r '.choices[0].message.content // empty' 2>/dev/null)" \
+    || { echo "jq parse failed; using deterministic fallback" >&2; return 1; }
+  if [[ -z "$content" ]]; then
+    echo "empty LLM content; using deterministic fallback" >&2
+    return 1
+  fi
+
+  printf '<!-- auto-pr-desc sha=%s -->\n%s\n' "$HEAD_SHA" "$content"
+}
+
 generate_body() {
+  local llm
+  if llm="$(generate_body_llm)" && [[ -n "$llm" ]]; then
+    printf '%s' "$llm"
+    return
+  fi
+
+  # Deterministic fallback: commit subjects + file-based test plan.
   local summary testplan
   summary="$(build_summary_bullets)"
   if [[ -z "$summary" ]]; then
