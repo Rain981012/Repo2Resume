@@ -80,9 +80,7 @@ def test_analyze_tool_empty_paths_uses_discovery(fake_bundle, monkeypatch) -> No
 
 def test_analyze_tool_no_repos_found(monkeypatch) -> None:
     """paths 空 + 扫不到仓库 → 返回提示，不调 run_analyze。"""
-    monkeypatch.setattr(
-        "repo2resume.agent.builtins._discover_local_repos", lambda base=None: []
-    )
+    monkeypatch.setattr("repo2resume.agent.builtins._discover_local_repos", lambda base=None: [])
     tool = make_analyze_tool(config=None, cache=None, db=None)
     out = tool.call({})
     assert "未找到仓库" in out

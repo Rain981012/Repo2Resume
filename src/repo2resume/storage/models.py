@@ -156,10 +156,7 @@ class SkillProfile(BaseModel):
         if isinstance(item, dict):
             repo = item.get("repo") or item.get("name")
             reason = (
-                item.get("reason")
-                or item.get("message")
-                or item.get("text")
-                or item.get("caution")
+                item.get("reason") or item.get("message") or item.get("text") or item.get("caution")
             )
             if repo and reason:
                 return f"{repo}: {reason}"

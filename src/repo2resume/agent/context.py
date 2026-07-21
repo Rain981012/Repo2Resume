@@ -134,7 +134,7 @@ class ContextManager:
         """
         填空: self._messages.append({"role":"tool", "tool_call_id":..., "content":...})
         """
-        self._messages.append({"role":"tool", "tool_call_id": tool_call_id, "content": content})
+        self._messages.append({"role": "tool", "tool_call_id": tool_call_id, "content": content})
 
     def messages(self) -> list[dict[str, Any]]:
         """空 3：返回要发给 LLM 的完整消息列表。
@@ -146,7 +146,7 @@ class ContextManager:
         """
         填空: return [{"role":"system","content":self._system}, *self._messages]
         """
-        return [{"role":"system","content":self._system}, *self._messages]
+        return [{"role": "system", "content": self._system}, *self._messages]
 
     def token_count(self) -> int:
         """空 4：估算当前完整 messages 的 token 数。
@@ -183,7 +183,7 @@ class ContextManager:
             return False
         else:
             self._messages = self._messages[-keep_last:]
-            self._messages.insert(0, {"role":"system","content":"[已裁剪较早的对话]"})
+            self._messages.insert(0, {"role": "system", "content": "[已裁剪较早的对话]"})
             return True
 
 

@@ -18,6 +18,7 @@ def _make_loop(llm):
 
 def test_direct_reply_no_tool() -> None:
     """LLM 直接给文本 → 立即返回，不调工具。"""
+
     def llm(messages, tools):
         return LLMResponse(content="你好")
 

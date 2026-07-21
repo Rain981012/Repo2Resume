@@ -32,9 +32,7 @@ def make_llm_adapter(client: LLMClient, *, temperature: float = 0.2):
                 arguments = json.loads(raw_args) if raw_args else {}
             except (json.JSONDecodeError, TypeError):
                 arguments = {}
-            tool_calls.append(
-                ToolCall(id=getattr(tc, "id", ""), name=name, arguments=arguments)
-            )
+            tool_calls.append(ToolCall(id=getattr(tc, "id", ""), name=name, arguments=arguments))
         # 有 tool_calls 时按协议优先返回 tool_calls；content 留空避免 loop 误判为最终回复
         if tool_calls:
             return LLMResponse(content=None, tool_calls=tool_calls)

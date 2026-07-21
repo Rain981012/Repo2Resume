@@ -174,35 +174,33 @@ class AgentLoop:
         """
         填空: 按 空 2 / 空 3 / 空 4 三段写
         """
-        #空2
+        # 空2
         self._context.add("user", user_input)
         self._context._system = self._assembler.build(state)
-        
-        #空3
+
+        # 空3
         for _ in range(self._max_rounds):
-          messages = self._context.messages()
-          tools = self._registry.list_schemas()
-          resp = self._llm(messages, tools)
-          if resp.tool_calls:
-            tc_dicts = [
-                {
-                    "id": tc.id,
-                    "type": "function",
-                    "function": {
-                        "name": tc.name,
-                        "arguments": str(tc.arguments),
-                    },
-                }
-                for tc in resp.tool_calls
-            ]
-            self._context.add("assistant", "", tool_calls=tc_dicts)
-            self._execute_tools(resp.tool_calls)
-            continue
-          else:
-            self._context.add("assistant", resp.content or "")
-            return resp.content or ""
-          
+            messages = self._context.messages()
+            tools = self._registry.list_schemas()
+            resp = self._llm(messages, tools)
+            if resp.tool_calls:
+                tc_dicts = [
+                    {
+                        "id": tc.id,
+                        "type": "function",
+                        "function": {
+                            "name": tc.name,
+                            "arguments": str(tc.arguments),
+                        },
+                    }
+                    for tc in resp.tool_calls
+                ]
+                self._context.add("assistant", "", tool_calls=tc_dicts)
+                self._execute_tools(resp.tool_calls)
+                continue
+            else:
+                self._context.add("assistant", resp.content or "")
+                return resp.content or ""
+
         # 空4
         return f"[达到最大轮数 {self._max_rounds}，停止]"
-
-            

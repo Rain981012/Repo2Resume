@@ -43,7 +43,11 @@ def test_maybe_compact_no_op_when_under_budget() -> None:
 
 
 def test_maybe_compact_trims_when_over_budget() -> None:
-    ctx = ContextManager(system="s", max_tokens=30, count_tokens=_fake_counter, )
+    ctx = ContextManager(
+        system="s",
+        max_tokens=30,
+        count_tokens=_fake_counter,
+    )
     # 加 10 条 user 消息 → system + 10 = 11 条 = 110 token，超 30
     for i in range(10):
         ctx.add("user", f"m{i}")

@@ -119,15 +119,11 @@ def select_authors(repos: list[Path]) -> list[str]:
             ", ".join(a.repos),
         )
     console.print(table)
-    console.print(
-        "[dim]Enter numbers separated by comma (e.g. 1,3), or[/dim] [bold]all[/bold]"
-    )
+    console.print("[dim]Enter numbers separated by comma (e.g. 1,3), or[/dim] [bold]all[/bold]")
 
     raw = typer.prompt("Select author(s)", default="1")
     chosen = _parse_author_selection(raw, authors)
-    console.print(
-        "[green]Selected:[/green] " + ", ".join(a.display for a in chosen)
-    )
+    console.print("[green]Selected:[/green] " + ", ".join(a.display for a in chosen))
     return [a.filter_value for a in chosen]
 
 
@@ -283,9 +279,7 @@ def _print_profile(profile: SkillProfile) -> None:
 def analyze(
     paths: Annotated[
         list[str] | None,
-        typer.Argument(
-            help="Local git repo paths. Default: all repos under ./local_repos/."
-        ),
+        typer.Argument(help="Local git repo paths. Default: all repos under ./local_repos/."),
     ] = None,
     author: Annotated[
         list[str] | None,
@@ -328,9 +322,7 @@ def analyze(
                 "  repo2resume analyze ~/code/my-repo"
             )
             raise typer.Exit(code=1)
-        console.print(
-            f"[dim]Using {len(repo_paths)} repo(s) from ./local_repos/[/dim]"
-        )
+        console.print(f"[dim]Using {len(repo_paths)} repo(s) from ./local_repos/[/dim]")
 
     if author:
         authors = list(author)
@@ -434,9 +426,7 @@ def chat(
         session_id = uuid.uuid4().hex[:12]
 
     llm = make_llm_adapter(LLMClient(cfg, cache=cache))
-    loop = AgentLoop(
-        llm=llm, registry=reg, assembler=assembler, context=ctx, max_rounds=8
-    )
+    loop = AgentLoop(llm=llm, registry=reg, assembler=assembler, context=ctx, max_rounds=8)
 
     console.print(
         Panel(
@@ -468,7 +458,6 @@ def chat(
         console.print(f"[dim]session {session_id} saved[/dim]")
         cache.close()
         db.close()
-
 
 
 @app.command("export")

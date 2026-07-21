@@ -18,11 +18,13 @@ def build_fact_sheet(stats: RepoStatsBundle) -> FactSheet:
         填空: entries.append(FactEntry( key=?, value=?, evidence=? ))
         提示: key 用 f-string 拼上 lang；evidence 用 EvidenceRef(source=...)
         """
-        entries.append(FactEntry(
-            key=f"summary.overall_language_share.{lang}",
-            value=share,
-            evidence=EvidenceRef(source="summary.overall_language_share"),
-        ))
+        entries.append(
+            FactEntry(
+                key=f"summary.overall_language_share.{lang}",
+                value=share,
+                evidence=EvidenceRef(source="summary.overall_language_share"),
+            )
+        )
 
     # ========== 空 2～4：逐仓库 ==========
     for repo in stats.repos:
@@ -37,16 +39,20 @@ def build_fact_sheet(stats: RepoStatsBundle) -> FactSheet:
         填空: 追加两条 FactEntry（author_commits / author_share）
         提示: repo.name / repo.author_commits / repo.author_share
         """
-        entries.append(FactEntry(
-            key=f"{repo.name}.author_commits",
-            value=repo.author_commits,
-            evidence=EvidenceRef(source=f"{repo.name}.author_commits"),
-        ))
-        entries.append(FactEntry(
-            key=f"{repo.name}.author_share",
-            value=repo.author_share,
-            evidence=EvidenceRef(source=f"{repo.name}.author_share"),
-        ))
+        entries.append(
+            FactEntry(
+                key=f"{repo.name}.author_commits",
+                value=repo.author_commits,
+                evidence=EvidenceRef(source=f"{repo.name}.author_commits"),
+            )
+        )
+        entries.append(
+            FactEntry(
+                key=f"{repo.name}.author_share",
+                value=repo.author_share,
+                evidence=EvidenceRef(source=f"{repo.name}.author_share"),
+            )
+        )
 
         # ---------- 空 3：依赖（有则写） ----------
         # 目的: 技术栈声明必须来自检测到的依赖文件
@@ -57,11 +63,13 @@ def build_fact_sheet(stats: RepoStatsBundle) -> FactSheet:
             填空: entries.append(FactEntry( key=?, value=?, evidence=? ))
             提示: key = f"{repo.name}.dependencies"
             """
-            entries.append(FactEntry(
-               key=f"{repo.name}.dependencies",
-               value=repo.dependencies,
-               evidence=EvidenceRef(source=f"{repo.name}.dependencies"),
-            ))
+            entries.append(
+                FactEntry(
+                    key=f"{repo.name}.dependencies",
+                    value=repo.dependencies,
+                    evidence=EvidenceRef(source=f"{repo.name}.dependencies"),
+                )
+            )
 
         # ---------- 空 4：低贡献 caution ----------
         # 目的: 份额过低时标记，避免夸大「主导该仓库」
@@ -72,10 +80,12 @@ def build_fact_sheet(stats: RepoStatsBundle) -> FactSheet:
             填空: entries.append(FactEntry( key=?, value=?, evidence=? ))
             提示: key = f"{repo.name}.low_author_share"
             """
-            entries.append(FactEntry(
-               key=f"{repo.name}.low_author_share",
-               value=repo.author_share,
-               evidence=EvidenceRef(source=f"{repo.name}.low_author_share"),
-            ))
+            entries.append(
+                FactEntry(
+                    key=f"{repo.name}.low_author_share",
+                    value=repo.author_share,
+                    evidence=EvidenceRef(source=f"{repo.name}.low_author_share"),
+                )
+            )
 
     return FactSheet(entries=entries)

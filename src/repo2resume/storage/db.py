@@ -94,9 +94,7 @@ class Database:
 
     # ---- chat sessions -------------------------------------------------
 
-    def save_session(
-        self, session_id: str, messages: list[dict], title: str | None = None
-    ) -> None:
+    def save_session(self, session_id: str, messages: list[dict], title: str | None = None) -> None:
         """Upsert a chat session's messages (and optionally title)."""
         import json
 
@@ -143,7 +141,6 @@ class Database:
             (limit,),
         ).fetchall()
         return [dict(r) for r in rows]
-
 
 
 def open_db(path: Path) -> Database:

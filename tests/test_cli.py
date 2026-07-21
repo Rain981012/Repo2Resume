@@ -62,15 +62,11 @@ def test_analyze_defaults_to_local_repos(
     )
     assert result.exit_code == 0, result.stdout + result.stderr
     out = result.stdout
-    assert (
-        "Authors found" in out or "Only one author" in out or "Selected" in out
-    )
+    assert "Authors found" in out or "Only one author" in out or "Selected" in out
     assert "author_commits" in out
 
 
-def test_analyze_interactive_selects_author(
-    data_dir: Path, tmp_path: Path
-) -> None:
+def test_analyze_interactive_selects_author(data_dir: Path, tmp_path: Path) -> None:
     _ = data_dir
     repo = init_fixture_repo(tmp_path / "demo")
     result = runner.invoke(

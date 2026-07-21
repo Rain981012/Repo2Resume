@@ -26,14 +26,11 @@ class AnalyzeRepoParams(BaseModel):
         default_factory=list,
         description="本地 git 仓库路径列表；为空则自动扫描当前目录下的 ./local_repos/",
     )
-    authors: list[str] | None = Field(
-        None, description="按邮箱或名字子串过滤作者；为空则不过滤"
-    )
+    authors: list[str] | None = Field(None, description="按邮箱或名字子串过滤作者；为空则不过滤")
     since: str | None = Field(
         None,
         description=(
-            "只统计此日期之后的提交，YYYY-MM-DD；不需要时省略或填 null，"
-            "不要填字符串 'null'"
+            "只统计此日期之后的提交，YYYY-MM-DD；不需要时省略或填 null，不要填字符串 'null'"
         ),
     )
     stats_only: bool = Field(
