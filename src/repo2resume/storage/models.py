@@ -1,4 +1,9 @@
-"""Pydantic models for analysis stats and skill profiles."""
+"""Pydantic 数据模型：分析统计 + 技能画像 + 事实清单的统一 schema。
+
+这些模型既是运行时的数据载体，也是 LLM 输出的校验 schema（`model_validate_json` 直接
+验 LLM 返回的 JSON）。`EvidenceRef` / `FactEntry` / `FactSheet` 是 Phase 1 反幻觉机制的核心——
+每条声明都带可溯源的证据指针。
+"""
 
 from __future__ import annotations
 
@@ -40,13 +45,15 @@ def _coerce_evidence(value: Any) -> Any:
 
 
 class LanguageStat(BaseModel):
+    """单语言统计：新增行数、触及文件数、占代码总行数份额（非代码语言为 None）。"""
+
     lines_added: int = 0
     files_touched: int = 0
     share: float | None = None
 
 
 class ProjectSummary(BaseModel):
-    """Per-repo mining result (machine stats)."""
+    """单仓库挖矿结果（机器统计），是 `RepoStatsBundle.repos` 的元素类型。"""
 
     name: str
     path: str
@@ -70,13 +77,15 @@ class ProjectSummary(BaseModel):
 
 
 class StatsSummary(BaseModel):
+    """跨仓库汇总：仓库数、作者总 commit 数、按行数加权的全局语言份额。"""
+
     repo_count: int = 0
     total_author_commits: int = 0
     overall_language_share: dict[str, float] = Field(default_factory=dict)
 
 
 class RepoStatsBundle(BaseModel):
-    """Multi-repo stats document (Phase A stats.json shape)."""
+    """多仓库统计文档（Phase A stats.json 的形状），是分析流水线的核心数据载体。"""
 
     generated_at: str
     author_filters: list[str] = Field(default_factory=list)
@@ -108,6 +117,8 @@ class DomainTag(BaseModel):
 
 
 class TechStack(BaseModel):
+    """技术栈分类：语言 / 框架 / 数据库 / 工具与基础设施 / 其他。"""
+
     languages: list[str] = Field(default_factory=list)
     frameworks: list[str] = Field(default_factory=list)
     databases: list[str] = Field(default_factory=list)
@@ -137,6 +148,8 @@ class JobDirection(BaseModel):
 
 
 class SkillProfile(BaseModel):
+    """技能画像：LLM 生成、Pydantic 校验的最终产物，供简历生成与职位匹配消费。"""
+
     primary_direction: str
     secondary_directions: list[str] = Field(default_factory=list)
     coding_language: list[LanguageShare] = Field(default_factory=list)
@@ -200,9 +213,12 @@ class FactEntry(BaseModel):
 
 
 class FactSheet(BaseModel):
+    """事实清单：一组带证据的 `FactEntry`，渲染成 prompt block 约束 LLM 不幻觉。"""
+
     entries: list[FactEntry] = Field(default_factory=list)
 
     def as_prompt_block(self) -> str:
+        """把所有事实条目渲染成 `- key: value (来源: source)` 的多行文本，塞进 LLM prompt。"""
         lines = []
         for e in self.entries:
             lines.append(f"- {e.key}: {e.value!r} {e.evidence.render()}")

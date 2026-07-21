@@ -1,4 +1,9 @@
-"""CacheBackend: Redis primary, SQLite fallback with TTL + size caps."""
+"""缓存后端抽象 + 两个实现：Redis（首选）/ SQLite（兜底），带 TTL 与容量上限。
+
+`CacheBackend` 是 Protocol（get/set/delete/clear/close），`RedisCache` 和 `SqliteCache`
+各自实现。单值超 512KB 跳过写入；SQLite 库超 100MB 按 created_at FIFO 淘汰。`open_cache`
+优先 Redis，连不上自动降级 SQLite，对调用方透明。
+"""
 
 from __future__ import annotations
 
@@ -15,6 +20,8 @@ MAX_DB_BYTES = 100 * 1024 * 1024
 
 
 class CacheBackend(Protocol):
+    """缓存后端接口：get/set/delete/clear/close，Redis 与 SQLite 共用同一契约。"""
+
     def get(self, key: str) -> str | None: ...
 
     def set(self, key: str, value: str, *, ttl: int | None = None) -> None: ...
@@ -27,6 +34,8 @@ class CacheBackend(Protocol):
 
 
 class RedisCache:
+    """基于 redis-py 的缓存实现，支持 TTL（`setex`）与单值大小上限。"""
+
     def __init__(self, url: str) -> None:
         import redis
 
@@ -57,6 +66,8 @@ class RedisCache:
 
 
 class SqliteCache:
+    """SQLite 缓存：建 `cache` 表存 key/value/expires_at/created_at，支持 TTL 与 FIFO 容量淘汰。"""
+
     def __init__(self, path: Path) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         self._path = path
@@ -129,7 +140,7 @@ class SqliteCache:
         return int(row[0]) if row else 0
 
     def _enforce_size_cap(self) -> None:
-        """FIFO eviction by created_at until payload under MAX_DB_BYTES."""
+        """库超 100MB 时按 created_at 升序 FIFO 淘汰最旧记录，直到回到上限以下再 VACUUM。"""
         if self._payload_bytes() <= MAX_DB_BYTES:
             return
         while self._payload_bytes() > MAX_DB_BYTES:
@@ -150,7 +161,7 @@ class SqliteCache:
 
 
 def open_cache(redis_url: str, sqlite_path: Path) -> CacheBackend:
-    """Prefer Redis; on failure fall back to SQLite cache.db."""
+    """工厂：优先 Redis，连不上自动降级到 SQLite 缓存，调用方无感。"""
     try:
         cache: CacheBackend = RedisCache(redis_url)
         logger.info("cache backend: redis (%s)", redis_url)

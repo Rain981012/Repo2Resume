@@ -1,4 +1,10 @@
-"""Mine local git repos with PyDriller → RepoStatsBundle."""
+"""用 PyDriller + git CLI 挖本地仓库统计，产出 `RepoStatsBundle`。
+
+核心是 `mine_one`：对单仓库跑 `git rev-list` 数 commit、PyDriller 遍历非 merge commit
+按作者/日期过滤，累加各语言新增行数、月度提交、commit 类型、活跃月份等，组装成
+`ProjectSummary`。`mine_repos` 聚合多仓 + 失败隔离。作者过滤用 name|email 子串匹配，
+与 Phase A1 的口径一致。
+"""
 
 from __future__ import annotations
 
@@ -31,6 +37,8 @@ CONVENTIONAL_RE = re.compile(
 
 @dataclass
 class MineOptions:
+    """挖矿参数：作者过滤列表、起始日期、保留的最近 commit subject 数量。"""
+
     authors: list[str] = field(default_factory=list)
     since: str | None = None  # YYYY-MM-DD
     top_commits: int = 30
@@ -38,6 +46,8 @@ class MineOptions:
 
 @dataclass(frozen=True)
 class AuthorInfo:
+    """跨仓库聚合后的作者信息：名字、邮箱、commit 数、活跃仓库名集合。"""
+
     name: str
     email: str
     commits: int
@@ -51,7 +61,7 @@ class AuthorInfo:
 
     @property
     def filter_value(self) -> str:
-        """Preferred --author pattern (email when present)."""
+        """传给 git --author 的首选值：有邮箱用邮箱，否则用名字。"""
         return self.email or self.name
 
 
@@ -103,6 +113,7 @@ def collect_authors(repos: list[Path]) -> list[AuthorInfo]:
 
 
 def run_git(repo: Path, *args: str) -> str:
+    """在 `repo` 目录跑 `git` 子进程，失败抛 `RuntimeError`（带截断的 stderr）。"""
     result = subprocess.run(
         ["git", "-C", str(repo), *args],
         capture_output=True,
@@ -116,10 +127,12 @@ def run_git(repo: Path, *args: str) -> str:
 
 
 def short_head(repo: Path) -> str:
+    """返回仓库 HEAD 的短 commit hash，用于缓存键和统计标识。"""
     return run_git(repo, "rev-parse", "--short", "HEAD").strip()
 
 
 def _parse_since(since: str | None) -> datetime | None:
+    """把 `YYYY-MM-DD` 解析成 UTC datetime；空值或坏值（含模型传的 "null"）返回 None。"""
     if not since:
         return None
     try:
@@ -138,7 +151,7 @@ def _author_match(name: str, email: str, patterns: list[str]) -> bool:
 
 
 def _count_commits(repo: Path, *, authors: list[str], since: str | None) -> tuple[int, int]:
-    """Return (total_commits, author_commits) using git rev-list for speed/accuracy."""
+    """用 `git rev-list --count` 快速返回 (总 commit 数, 作者命中 commit 数)。"""
     base = ["rev-list", "--count", "--no-merges", "HEAD"]
     since_args = [f"--since={since}"] if since else []
     total = int(run_git(repo, *base, *since_args).strip() or 0)
@@ -151,6 +164,8 @@ def _count_commits(repo: Path, *, authors: list[str], since: str | None) -> tupl
 
 
 def mine_one(repo: Path, options: MineOptions) -> ProjectSummary:
+    """挖单个仓库：数 commit/份额 → PyDriller 遍历按作者过滤 → 累加语言/月度/类型
+    → 组装 `ProjectSummary`。"""
     repo = repo.expanduser().resolve()
     if not (repo / ".git").exists() and not (repo / ".git").is_file():
         raise RuntimeError(f"not a git repository: {repo}")
@@ -257,6 +272,7 @@ def mine_one(repo: Path, options: MineOptions) -> ProjectSummary:
 
 
 def build_summary(repos: list[ProjectSummary]) -> StatsSummary:
+    """跨仓库汇总：仓库数、作者总 commit 数、按新增行数加权的全局语言份额。"""
     lang_totals: Counter[str] = Counter()
     for r in repos:
         for lang, stat in r.languages.items():
@@ -273,6 +289,7 @@ def build_summary(repos: list[ProjectSummary]) -> StatsSummary:
 
 
 def mine_repos(paths: list[Path], options: MineOptions) -> RepoStatsBundle:
+    """逐仓库调 `mine_one`，单仓失败记进 errors 不中断，最后聚合成 `RepoStatsBundle`。"""
     results: list[ProjectSummary] = []
     errors: list[dict[str, str]] = []
     for raw in paths:

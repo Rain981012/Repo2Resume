@@ -1,9 +1,16 @@
+"""Fact Sheet 构建器：从 `RepoStatsBundle` 抽取可核验的事实条目，约束 LLM 不幻觉。
+
+每条 `FactEntry` 都带 `EvidenceRef` 指向统计来源，画像里「主语言 Python 99.5%」「在 api
+提交了 12 次」这类声明都必须能对上这里的某条事实。这是 Phase 1 手写的反幻觉核心。
+"""
+
 from __future__ import annotations
 
 from repo2resume.storage.models import EvidenceRef, FactEntry, FactSheet, RepoStatsBundle
 
 
 def build_fact_sheet(stats: RepoStatsBundle) -> FactSheet:
+    """把仓库统计压成扁平的 `FactSheet`：全局语言份额 + 逐仓库贡献量/依赖/低贡献 caution。"""
     entries: list[FactEntry] = []
 
     # ========== 空 1：全局语言份额 ==========

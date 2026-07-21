@@ -1,4 +1,9 @@
-"""Rule-based tech stack detection from manifests + language stats."""
+"""基于规则的技术栈检测：解析依赖清单 + 按语言统计分类。
+
+不调 LLM，纯规则：用 `@manifest` 注册的解析器读 requirements.txt / pyproject.toml /
+package.json / go.mod / Cargo.toml / Gemfile / composer.json，把依赖按关键字分进
+frameworks / databases / tools_and_infra / other 四类，再合并语言统计成 `TechStack`。
+"""
 
 from __future__ import annotations
 
@@ -15,6 +20,8 @@ MANIFEST_PARSERS: dict[str, Callable[[Path], list[str]]] = {}
 
 
 def manifest(filename: str):
+    """装饰器：把一个依赖清单解析函数注册进 `MANIFEST_PARSERS[filename]`。"""
+
     def deco(fn: Callable[[Path], list[str]]) -> Callable[[Path], list[str]]:
         MANIFEST_PARSERS[filename] = fn
         return fn
@@ -132,6 +139,7 @@ INFRA_HINTS = {
 
 
 def collect_dependencies(repo: Path) -> dict[str, list[str]]:
+    """扫描仓库根目录下所有已知清单文件，返回 `{清单名: 去重排序后的依赖名列表}`。"""
     found: dict[str, list[str]] = {}
     for fname, parser in MANIFEST_PARSERS.items():
         f = repo / fname
@@ -147,6 +155,7 @@ def collect_dependencies(repo: Path) -> dict[str, list[str]]:
 
 
 def _classify_dep(name: str, bucket: dict[str, set[str]]) -> None:
+    """按关键字把单个依赖分进 frameworks / databases / tools_and_infra / other 桶。"""
     key = name.lower().split("/")[-1]
     if key in FRAMEWORK_HINTS or key.startswith("react") or key.startswith("@vitejs"):
         bucket["frameworks"].add(name)
@@ -163,7 +172,7 @@ def _classify_dep(name: str, bucket: dict[str, set[str]]) -> None:
 
 
 def detect_tech_stack(stats: RepoStatsBundle) -> TechStack:
-    """Aggregate languages + classified dependencies into TechStack."""
+    """聚合各仓库语言 + 分类后的依赖，输出 `TechStack`（剔除非代码语言）。"""
     languages: set[str] = set()
     for lang in stats.summary.overall_language_share:
         if lang not in NON_CODE_LANGS:
@@ -194,6 +203,7 @@ def detect_tech_stack(stats: RepoStatsBundle) -> TechStack:
 
 
 def detect_for_project(project: ProjectSummary) -> TechStack:
+    """对单个 `ProjectSummary` 跑技术栈检测：临时包成 bundle 再复用 `detect_tech_stack`。"""
     share = {
         name: (stat.share or 0.0)
         for name, stat in project.languages.items()

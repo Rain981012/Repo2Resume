@@ -1,4 +1,8 @@
-"""SQLite persistence for profiles, drafts, sessions, and traces."""
+"""SQLite 持久化：技能画像、简历草稿、chat 会话、LLM trace 的统一存储。
+
+用版本化迁移（`MIGRATIONS` dict）建表，`schema_migrations` 表记录已应用版本，
+`Database.migrate` 启动时自动补齐未应用的迁移。chat 会话相关方法供 agent `chat` 命令做会话持久化。
+"""
 
 from __future__ import annotations
 
@@ -54,6 +58,8 @@ MIGRATIONS: dict[int, str] = {
 
 
 class Database:
+    """SQLite 连接 + 版本化迁移 + 会话读写。row_factory=Row 方便按列名取值。"""
+
     def __init__(self, path: Path) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         self.path = path
@@ -64,9 +70,11 @@ class Database:
 
     @property
     def conn(self) -> sqlite3.Connection:
+        """暴露底层连接，供 pipeline 等直接写表（如 skill_profiles）。"""
         return self._conn
 
     def current_version(self) -> int:
+        """返回已应用的最新迁移版本；从未迁移过返回 0。"""
         row = self._conn.execute(
             "SELECT name FROM sqlite_master WHERE type='table' AND name='schema_migrations'"
         ).fetchone()
@@ -78,6 +86,7 @@ class Database:
         return int(ver[0]) if ver else 0
 
     def migrate(self) -> None:
+        """按版本号顺序应用所有未应用的迁移脚本，每应用一条记进 `schema_migrations`。"""
         current = self.current_version()
         for version in sorted(MIGRATIONS):
             if version <= current:
@@ -144,4 +153,5 @@ class Database:
 
 
 def open_db(path: Path) -> Database:
+    """工厂：打开/创建指定路径的 SQLite 数据库并自动跑迁移。"""
     return Database(path)

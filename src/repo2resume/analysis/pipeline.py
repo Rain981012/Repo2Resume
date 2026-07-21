@@ -1,4 +1,9 @@
-"""End-to-end analyze pipeline: mine → tech → fact sheet → profile."""
+"""端到端分析流水线：mine → tech → fact sheet → profile，带缓存与持久化。
+
+`run_analyze` 是 CLI/agent 共用的入口：先挖 git 统计，可选识别技术栈 + 构建事实清单 +
+调 LLM 生成技能画像，结果按需写缓存和 SQLite。`stats_only=True` 时只返回统计不调 LLM，
+给 agent 工具用来省成本。
+"""
 
 from __future__ import annotations
 
@@ -34,6 +39,7 @@ def mine_with_cache(
     *,
     use_cache: bool = True,
 ) -> RepoStatsBundle:
+    """逐仓库挖统计，命中缓存（head 不变）则直接复用，失败仓库记进 errors 不中断整体。"""
     if cache is None or not use_cache:
         return mine_repos(paths, options)
 
@@ -71,7 +77,7 @@ def mine_with_cache(
 
 
 def safe_fact_sheet(stats: RepoStatsBundle) -> FactSheet:
-    """Call 【手写】builder; fall back to empty sheet until implemented."""
+    """调【手写】的 `build_fact_sheet`；未实现时退化为空 FactSheet，不阻塞流水线。"""
     try:
         return build_fact_sheet(stats)
     except NotImplementedError:
@@ -89,6 +95,12 @@ def run_analyze(
     stats_only: bool = False,
     use_cache: bool = True,
 ) -> tuple[RepoStatsBundle, SkillProfile | None]:
+    """完整分析入口：mine → (tech → facts → LLM 画像) → 缓存 + 持久化。
+
+    `stats_only=True` 只返回统计不调 LLM（agent 工具默认走这条省成本）；
+    否则识别技术栈、构建事实清单、调 `Profiler` 生成画像，并写缓存与 SQLite。
+    返回 `(stats, profile)`，stats_only 时 profile 为 None。
+    """
     stats = mine_with_cache(paths, options, cache, use_cache=use_cache)
     if stats_only:
         return stats, None

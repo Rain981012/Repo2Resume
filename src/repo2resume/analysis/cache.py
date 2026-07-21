@@ -1,4 +1,8 @@
-"""Analysis result cache: analysis:{repo_hash}:{head}:{authors}:{since}."""
+"""分析结果缓存键与读写：把 stats/profile 序列化进 `CacheBackend`。
+
+缓存键由「仓库路径 hash + head commit + 作者过滤 + since」组成，head 一变键就变，
+天然失效，所以无需 TTL。profile 的键还把 summary 纳入 hash，保证统计变了画像也重算。
+"""
 
 from __future__ import annotations
 
@@ -12,10 +16,12 @@ from repo2resume.storage.models import ProjectSummary, RepoStatsBundle, SkillPro
 
 
 def _hash_text(text: str) -> str:
+    """对文本取 sha256 前 16 位，用于把长字符串（路径/作者列表）压成短摘要进缓存键。"""
     return hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
 
 
 def repo_cache_key(repo: Path, head: str, options: MineOptions) -> str:
+    """单仓库统计的缓存键：`analysis:{path_hash}:{head}:{authors_hash}:{since_hash}`。"""
     authors = ",".join(sorted(options.authors))
     since = options.since or ""
     path_hash = _hash_text(str(repo.resolve()))
@@ -23,6 +29,7 @@ def repo_cache_key(repo: Path, head: str, options: MineOptions) -> str:
 
 
 def bundle_cache_key(paths: list[Path], options: MineOptions, heads: list[str]) -> str:
+    """多仓库 bundle 的缓存键：把所有 `path:head` 排序后整体 hash，避免顺序影响命中。"""
     parts = sorted(f"{p.resolve()}:{h}" for p, h in zip(paths, heads, strict=False))
     authors = ",".join(sorted(options.authors))
     since = options.since or ""
@@ -31,6 +38,7 @@ def bundle_cache_key(paths: list[Path], options: MineOptions, heads: list[str]) 
 
 
 def get_cached_project(cache: CacheBackend, key: str) -> ProjectSummary | None:
+    """命中则反序列化成 `ProjectSummary`，未命中返回 None。"""
     raw = cache.get(key)
     if raw is None:
         return None
@@ -38,11 +46,12 @@ def get_cached_project(cache: CacheBackend, key: str) -> ProjectSummary | None:
 
 
 def set_cached_project(cache: CacheBackend, key: str, project: ProjectSummary) -> None:
-    # No TTL: invalidates when head commit in key changes
+    # 无 TTL：key 里已含 head commit，head 变即失效
     cache.set(key, project.model_dump_json(), ttl=None)
 
 
 def get_cached_profile(cache: CacheBackend, key: str) -> SkillProfile | None:
+    """命中则反序列化成 `SkillProfile`，未命中返回 None。"""
     raw = cache.get(key)
     if raw is None:
         return None
@@ -54,6 +63,7 @@ def set_cached_profile(cache: CacheBackend, key: str, profile: SkillProfile) -> 
 
 
 def profile_cache_key(stats: RepoStatsBundle) -> str:
+    """画像缓存键：把作者/since/各仓 head/summary 整体 hash，统计变则画像重算。"""
     payload = json.dumps(
         {
             "authors": stats.author_filters,

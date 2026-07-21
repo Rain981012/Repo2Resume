@@ -1,4 +1,9 @@
-"""Unified LiteLLM complete() / embed() with retry, timeout, optional cache."""
+"""统一 LLM 客户端：基于 LiteLLM 封装 `complete()` / `complete_with_tools()` / `embed()`。
+
+带指数退避重试（仅对超时/限流/5xx 重试，配额耗尽不重试）、可选缓存（按 model+messages+
+temperature hash，TTL 7 天）、主模型配额耗尽时自动切 fallback 模型。`complete_with_tools`
+是 Phase 2 给 agent loop 用的 function-calling 入口，返回原生 tool_call 对象由 adapter 翻译。
+"""
 
 from __future__ import annotations
 
@@ -37,6 +42,8 @@ _QUOTA_TOKENS = (
 
 @dataclass
 class CompletionResult:
+    """一次补全的结果：文本、所用模型、输入/输出 token 数、可选成本（美元）。"""
+
     content: str
     model: str
     input_tokens: int
@@ -45,6 +52,7 @@ class CompletionResult:
 
 
 def _is_retryable(exc: BaseException) -> bool:
+    """判断异常是否值得重试：配额耗尽不重试；超时/限流/5xx/连接错误才重试。"""
     if _is_quota_exhausted(exc):
         return False
     status = getattr(exc, "status_code", None)
@@ -56,7 +64,7 @@ def _is_retryable(exc: BaseException) -> bool:
 
 
 def _is_quota_exhausted(exc: BaseException) -> bool:
-    """Paid quota / balance errors that should trigger fallback model."""
+    """识别付费配额/余额耗尽错误（402/403 或错误文本含额度关键词），用于触发 fallback。"""
     status = getattr(exc, "status_code", None)
     if status in {402, 403}:
         return True
@@ -65,6 +73,8 @@ def _is_quota_exhausted(exc: BaseException) -> bool:
 
 
 class LLMClient:
+    """LiteLLM 封装：补全/工具调用/嵌入，带重试、缓存、fallback。"""
+
     def __init__(self, config: AppConfig, cache: CacheBackend | None = None) -> None:
         self._config = config
         self._cache = cache
@@ -78,6 +88,7 @@ class LLMClient:
         temperature: float = 0.2,
         use_cache: bool = True,
     ) -> CompletionResult:
+        """普通补全：先查缓存 → 调 LiteLLM（带重试）→ 主模型配额耗尽则切 fallback → 写缓存。"""
         resolved = model or self._config.llm_model
         cache_key = self._cache_key("llm", resolved, messages, temperature)
         if use_cache and self._cache is not None:
@@ -170,18 +181,21 @@ class LLMClient:
         *,
         model: str | None = None,
     ) -> list[list[float]]:
+        """批量文本嵌入：按 index 排序保证返回顺序与输入一致。"""
         resolved = model or self._config.model_for("embed")
         response = self._embedding_with_retry(model=resolved, input=texts)
         data = sorted(response.data, key=lambda item: item["index"])
         return [list(item["embedding"]) for item in data]
 
     def _api_kwargs(self) -> dict[str, Any]:
+        """组装传给 LiteLLM 的公共参数：超时 + 可选 api_key。"""
         kwargs: dict[str, Any] = {"timeout": self._config.llm_timeout_s}
         if self._config.llm_api_key:
             kwargs["api_key"] = self._config.llm_api_key
         return kwargs
 
     def _completion_with_retry(self, **kwargs: Any) -> Any:
+        """用 tenacity 包一层 `litellm.completion`：指数退避 + 仅对可重试异常重试。"""
         attempts = max(1, self._config.llm_max_retries)
 
         @retry(
@@ -196,6 +210,7 @@ class LLMClient:
         return _call()
 
     def _embedding_with_retry(self, **kwargs: Any) -> Any:
+        """`litellm.embedding` 的重试封装，策略同 `_completion_with_retry`。"""
         attempts = max(1, self._config.llm_max_retries)
 
         @retry(
@@ -216,6 +231,7 @@ class LLMClient:
         messages: list[dict[str, Any]],
         temperature: float,
     ) -> str:
+        """按 model+messages+temperature 的 sha256 生成缓存键，相同请求命中同一结果。"""
         payload = json.dumps(
             {"model": model, "messages": messages, "temperature": temperature},
             sort_keys=True,
