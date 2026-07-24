@@ -119,8 +119,9 @@ class TraceHook:
         """
         start = self._starts.pop()
         latency_ms = int((time.perf_counter() - start) * 1000)
-        self._db.record_tool_trace(self._session_id, name, arguments,
-                                    result if error is None else None, error, latency_ms)
+        self._db.record_tool_trace(
+            self._session_id, name, arguments, result if error is None else None, error, latency_ms
+        )
         return result
 
 
@@ -159,13 +160,9 @@ class ErrorRecoveryHook:
         提示: 文本里带工具名 + 异常类型 + 异常消息，LLM 才能据此纠错。
         """
         if error is None:
-          return result
+            return result
         if isinstance(error, PermissionDenied):
-          return None
+            return None
         return (
-              f"[工具 {name} 执行失败: {type(error).__name__}: {error}] "
-              f"请修正参数或换种方式后重试。"
-          )
-
-
-
+            f"[工具 {name} 执行失败: {type(error).__name__}: {error}] 请修正参数或换种方式后重试。"
+        )

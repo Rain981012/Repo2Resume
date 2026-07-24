@@ -417,9 +417,7 @@ def chat(
     # 后续加 write/network 工具时，这里无需改动，工具自己标 risk 即可。
     def _confirm(name: str, args: dict) -> bool:
         preview = ", ".join(f"{k}={v}" for k, v in args.items())
-        ans = console.input(
-            f"[yellow]工具 {name}({preview}) 需要确认，执行吗？(y/N)[/yellow] "
-        )
+        ans = console.input(f"[yellow]工具 {name}({preview}) 需要确认，执行吗？(y/N)[/yellow] ")
         return ans.strip().lower() in {"y", "yes"}
 
     reg.add_hook(
