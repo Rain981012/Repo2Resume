@@ -16,6 +16,12 @@ from rich.table import Table
 from repo2resume import __version__
 from repo2resume.agent.builtins import make_analyze_tool
 from repo2resume.agent.context import ContextManager
+from repo2resume.agent.hooks import (
+    ErrorRecoveryHook,
+    PermissionDenied,
+    PermissionHook,
+    TraceHook,
+)
 from repo2resume.agent.llm_adapter import make_llm_adapter
 from repo2resume.agent.loop import AgentLoop
 from repo2resume.agent.prompt_assembler import PromptAssembler
@@ -404,6 +410,24 @@ def chat(
     reg = ToolRegistry()
     reg.register(make_analyze_tool(cfg, cache, db))
 
+    # Phase 2.5 Step 3：权限分级 hook。
+    # 事实/策略分离：工具自声明 risk（Tool.risk），
+    # 策略由 PermissionHook 按 needs_confirm_risks 决定。
+    # 当前内置工具只有 analyze_repo（readonly），所以确认逻辑暂不会被触发；
+    # 后续加 write/network 工具时，这里无需改动，工具自己标 risk 即可。
+    def _confirm(name: str, args: dict) -> bool:
+        preview = ", ".join(f"{k}={v}" for k, v in args.items())
+        ans = console.input(f"[yellow]工具 {name}({preview}) 需要确认，执行吗？(y/N)[/yellow] ")
+        return ans.strip().lower() in {"y", "yes"}
+
+    reg.add_hook(
+        PermissionHook(
+            risk_of=lambda n: reg.get(n).risk,
+            needs_confirm_risks={"write", "network"},
+            confirm=_confirm,
+        )
+    )
+
     base = (
         "你是 Repo2Resume 的简历助手。可以调用 analyze_repo 工具分析本地 git 仓库，"
         "然后基于返回的统计摘要回答用户「我在某仓库做了什么」一类问题。"
@@ -425,13 +449,25 @@ def chat(
     else:
         session_id = uuid.uuid4().hex[:12]
 
+    # Phase 2.5 Step 4：观测 hook。每次工具调用写一行 tool_traces，/cost 命令据此展示。
+    # 注册顺序：PermissionHook 在前，其 before 拒绝时直接 raise，TraceHook.before 不会执行，
+    # 故 TraceHook 的 _starts 栈不会残留（before/after 严格配对）。放在 session_id 确定之后。
+    reg.add_hook(TraceHook(db, session_id=session_id))
+
+    # Phase 2.5 Step 5：错误恢复 hook。工具异常被吞成文本回填 LLM，agent 可自纠错继续。
+    # 必须挂在 TraceHook 之后：TraceHook.after 先跑（记下 error 到 trace），ErrorRecoveryHook.after
+    # 后跑（吞掉 error 转文本）。顺序反了 TraceHook 会看到 error=None，失败就观测不到。
+    # PermissionDenied 不吞（ErrorRecoveryHook 内部守卫），照常抛到这里被 catch 显示给用户。
+    reg.add_hook(ErrorRecoveryHook())
+
     llm = make_llm_adapter(LLMClient(cfg, cache=cache))
     loop = AgentLoop(llm=llm, registry=reg, assembler=assembler, context=ctx, max_rounds=8)
 
     console.print(
         Panel(
             f"repo2resume chat — session {session_id}\n"
-            "输入问题，Ctrl-D 或 /quit 退出。下次用 --resume {session_id} 续聊。",
+            "输入问题，Ctrl-D 或 /quit 退出。/cost 看工具调用统计。"
+            "下次用 --resume {session_id} 续聊。",
             title="Chat",
             style="cyan",
         )
@@ -446,8 +482,31 @@ def chat(
                 continue
             if user.strip().lower() in {"/quit", "/exit"}:
                 break
+            if user.strip().lower() == "/cost":
+                stats = db.tool_trace_stats(session_id)
+                if stats["count"] == 0:
+                    console.print("[dim]本 session 暂无工具调用记录[/dim]")
+                else:
+                    tbl = Table(title=f"session {session_id} 工具调用统计", style="cyan")
+                    tbl.add_column("tool")
+                    tbl.add_column("count", justify="right")
+                    tbl.add_column("latency(ms)", justify="right")
+                    tbl.add_column("errors", justify="right")
+                    for name, s in stats["per_tool"].items():
+                        tbl.add_row(name, str(s["count"]), str(s["ms"]), str(s["errors"]))
+                    tbl.add_row(
+                        "[bold]total[/bold]",
+                        f"[bold]{stats['count']}[/bold]",
+                        f"[bold]{stats['total_ms']}[/bold]",
+                        f"[bold]{stats['errors']}[/bold]",
+                    )
+                    console.print(tbl)
+                continue
             try:
                 answer = loop.run(user)
+            except PermissionDenied as exc:
+                console.print(f"[yellow]已拒绝:[/yellow] {exc}")
+                continue
             except Exception as exc:  # noqa: BLE001
                 console.print(f"[red]error:[/red] {exc}")
                 continue

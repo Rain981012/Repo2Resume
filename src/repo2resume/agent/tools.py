@@ -34,9 +34,69 @@ loop 只跟 Registry 打交道；加工具就 register，不动 loop。
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Any
+from typing import Any, Literal, Protocol
 
 from pydantic import BaseModel
+
+# ---------------------------------------------------------------------------
+# Hook：工具调用的生命周期钩子（Phase 2.5 Step 1）
+# ---------------------------------------------------------------------------
+# 挂在 ToolRegistry.call 内部，包住真正的 tool.call。每个 hook 是一个对象，
+# 有 before / after 两个方法，按注册顺序依次跑：
+#   before(name, args) → 返回 dict 则替换参数，返回 None 则不动，raise 则中止
+#   after(name, args, result, error) → 返回值替换 result（Step 2 再处理 error）
+#
+# ============ 为什么要 hook（先读这段，再填空 7 / 空 8）============
+#
+# 没有 hook 时 call 是一行：`return self.get(name).call(arguments)`。
+# 想加「权限 / 观测 / 事实核对」三件事，只能全塞进 call 里 →
+#   1) call 越来越胖，每加一个关注点改一次核心方法（违反 OCP）
+#   2) 权限/观测/业务核对挤在一起，改一条容易碰另一条
+#   3) 没法按需组合（测试时想只跑观测不跑权限？得加 if 开关）
+#   4) call 认识了所有具体关注点，职责越界（本该只管「找工具+执行」）
+#
+# hook = 在固定时机（before/after）自动跑的可插拔回调。call 只提供两个挂载点，
+# 谁需要谁挂，互不相识：
+#   PermissionHook.before  → 写文件/联网前问用户，只读放行
+#   TraceHook.before/after → 记 name/参数/耗时/token 到 SQLite 的 llm_traces
+#   FactSheetHook.after    → 把 analyze_repo 返回的数字记进 fact sheet，反幻觉
+#   ErrorRecoveryHook.after→ 工具炸了把 error 转成文本回填给 LLM 重试
+#
+# Phase 2.5 的四块（hooks / 权限 / observability / error recovery）全都能用 hook
+# 表达 → 所以先写 hooks，它是后面三块的地基。
+#
+# 优点：
+#   - call 不再膨胀，加关注点 = 加 hook 类（OCP）
+#   - 关注点分离，单测各管各的（测 TraceHook 不用造权限环境）
+#   - 可插拔可组合：CLI 只挂 Trace，chat 挂全套，测试一个不挂
+#   - 单一 chokepoint：所有工具调用必经 call，hook 一定生效不漏
+#   - 顺序明确：按注册顺序串行，before 链改参数、after 链改结果
+#   - 跟主流框架同构：LangChain pre_run/post_run、Django middleware、pytest teardown
+#
+# 取舍（面试加分）：
+#   - 间接性：看 call 不知道实际跑了啥，得翻注册了哪些 hook
+#   - 顺序依赖：before 链前一个改参数，后一个看到改过的；顺序错出 bug
+#   - 异常语义复杂：before 抛了要不要跑 after？after 吞了要不要继续抛？→ 先定契约再写
+#   - 过度抽象风险：只有一种关注点时上 hook 是杀鸡用牛刀，MVP 两个挂载点够了
+
+
+class Hook(Protocol):
+    """工具调用的生命周期钩子契约。"""
+
+    def before(self, name: str, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        """调工具前：返回 dict 替换参数，None 不动，raise 中止整个调用。"""
+        ...
+
+    def after(
+        self,
+        name: str,
+        arguments: dict[str, Any],
+        result: Any,
+        error: BaseException | None,
+    ) -> Any:
+        """调工具后：可改写 result（返回新值）；Step 2 起可处理/吞掉 error。"""
+        ...
+
 
 # ---------------------------------------------------------------------------
 # Tool：一个工具的「说明书 + 执行器」
@@ -62,6 +122,9 @@ class Tool(BaseModel):
     description: str
     params_model: type[BaseModel]
     handler: Callable[..., Any]
+    # 工具自声明的风险等级（事实）：readonly / write / network。
+    # 权限策略（PermissionHook）基于此决定要不要问用户，工具自己不决定「要不要确认」。
+    risk: Literal["readonly", "write", "network"] = "readonly"
 
     def json_schema(self) -> dict[str, Any]:
         """空 1（已完成）：生成 OpenAI / LiteLLM 风格的 function schema。
@@ -126,6 +189,7 @@ class ToolRegistry:
 
     def __init__(self) -> None:
         self._tools: dict[str, Tool] = {}
+        self._hooks: list[Hook] = []
 
     def register(self, tool: Tool) -> None:
         """空 3（已完成）：把 tool 放进 self._tools。
@@ -165,18 +229,64 @@ class ToolRegistry:
         """
         return [t.json_schema() for t in self._tools.values()]
 
-    def call(self, name: str, arguments: dict[str, Any]) -> Any:
-        """空 6：get(name).call(arguments) 的薄封装。
+    def add_hook(self, hook: Hook) -> None:
+        """空 7（Phase 2.5 Step 1）：注册一个生命周期钩子，调用时按注册顺序跑。
 
-        为什么需要它：loop 里只写 registry.call("add", {...}) 比写
-        registry.get("add").call({...}) 更顺、更短；更重要的是把
-        「按名找 + 执行」收口到一个地方，Phase 2.5 才能在这里插
-        pre-hook（权限/参数校验）和 post-hook（结果裁剪/事实清单核对）。
+        提示: 一行——把 hook 追加进 self._hooks。
         """
+        self._hooks.append(hook)
+
+    def call(self, name: str, arguments: dict[str, Any]) -> Any:
+        """空 8→空 9（Phase 2.5 Step 2，重写）：在 tool.call 前后跑 hooks + 处理异常。
+
+        Step 1 只管成功路径；Step 2 要让 after 能见到异常，并允许 after 吞掉异常
+        （把异常转成给 LLM 的文本，不炸出去——这是 error recovery 的基础）。
+
+        契约:
+          - 工具抛异常 → result=None, error=异常
+          - after 链照常跑，每个 after 收到 (name, args, result, error)
+          - after 返回非 None 且 error 非空 → 吞掉异常：result=返回值, error 置 None
+          - after 返回 None   且 error 非空 → 不吞：error 保留
+          - 成功路径（error 一直 None）after 返回值直接当新 result（同 Step 1）
+          - 所有 after 跑完，error 仍非空 → re-raise
+
+        步骤:
+          1) args = arguments；跑 before 链（同 Step 1，不在本步改）
+          2) try: result = self.get(name).call(args); error = None
+             except BaseException as e: result = None; error = e
+          3) for h in self._hooks:
+                 new = h.after(name, args, result, error)
+                 if error is not None and new is not None:
+                     error = None          # 吞掉
+                 result = new
+          4) if error is not None: raise error
+          5) return result
+
+        期望（见 test_agent_hooks.py）:
+          - 成功路径同 Step 1（翻倍/+1000/多 hook 串行）继续绿
+          - 工具抛异常 + 无 hook → 异常原样抛出
+          - 工具抛异常 + after 返回 "recovered: ..." → call 返回该字符串，不抛
+          - 工具抛异常 + after 返回 None → 异常仍抛出
         """
-        填空: return self.get(name).call(arguments)
-        """
-        return self.get(name).call(arguments)
+        args = arguments
+        for h in self._hooks:
+            new = h.before(name, args)
+            if new is not None:
+                args = new
+        try:
+            result = self.get(name).call(args)
+            error = None
+        except Exception as e:
+            result = None
+            error = e
+        for h in self._hooks:
+            new = h.after(name, args, result, error)
+            if error is not None and new is not None:
+                error = None
+            result = new
+        if error is not None:
+            raise error
+        return result
 
 
 # ---------------------------------------------------------------------------
