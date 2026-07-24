@@ -126,4 +126,5 @@ def make_analyze_tool(
         ),
         params_model=AnalyzeRepoParams,
         handler=handler,
+        risk="readonly",
     )

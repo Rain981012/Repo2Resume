@@ -9,7 +9,7 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 MIGRATIONS: dict[int, str] = {
     1: """
@@ -53,6 +53,19 @@ MIGRATIONS: dict[int, str] = {
         latency_ms INTEGER,
         payload_json TEXT
     );
+    """,
+    2: """
+    CREATE TABLE IF NOT EXISTS tool_traces (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        session_id TEXT,
+        tool_name TEXT NOT NULL,
+        args_json TEXT,
+        result_json TEXT,
+        error TEXT,
+        latency_ms INTEGER
+    );
+    CREATE INDEX IF NOT EXISTS idx_tool_traces_session ON tool_traces(session_id);
     """,
 }
 
@@ -150,6 +163,68 @@ class Database:
             (limit,),
         ).fetchall()
         return [dict(r) for r in rows]
+
+    # ---- tool traces (Phase 2.5 Step 4 观测) ---------------------------
+
+    def record_tool_trace(
+        self,
+        session_id: str,
+        tool_name: str,
+        args: dict,
+        result: object,
+        error: object,
+        latency_ms: int,
+    ) -> None:
+        """写一行工具调用 trace。result/error 二选一：出错时 result 置 NULL、error 存文本。"""
+        import json
+
+        def _dumps(v: object) -> str | None:
+            if v is None:
+                return None
+            try:
+                return json.dumps(v, ensure_ascii=False, default=str)
+            except (TypeError, ValueError):
+                return repr(v)
+
+        self._conn.execute(
+            "INSERT INTO tool_traces"
+            "(session_id, tool_name, args_json, result_json, error, latency_ms) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (
+                session_id,
+                tool_name,
+                _dumps(args),
+                _dumps(result) if error is None else None,
+                str(error) if error is not None else None,
+                latency_ms,
+            ),
+        )
+        self._conn.commit()
+
+    def tool_trace_stats(self, session_id: str) -> dict:
+        """聚合某 session 的工具调用统计，供 /cost 命令展示。
+
+        返回: {count, total_ms, errors, per_tool: {name: {count, ms, errors}}}
+        """
+        rows = self._conn.execute(
+            "SELECT tool_name, COUNT(*) AS c, COALESCE(SUM(latency_ms), 0) AS ms, "
+            "SUM(CASE WHEN error IS NOT NULL THEN 1 ELSE 0 END) AS errs "
+            "FROM tool_traces WHERE session_id = ? GROUP BY tool_name",
+            (session_id,),
+        ).fetchall()
+        per_tool: dict[str, dict] = {}
+        total_count = total_ms = total_errs = 0
+        for r in rows:
+            per_tool[r["tool_name"]] = {"count": r["c"], "ms": r["ms"], "errors": r["errs"]}
+            total_count += r["c"]
+            total_ms += r["ms"]
+            total_errs += r["errs"]
+        return {
+            "count": total_count,
+            "total_ms": total_ms,
+            "errors": total_errs,
+            "per_tool": per_tool,
+        }
 
 
 def open_db(path: Path) -> Database:

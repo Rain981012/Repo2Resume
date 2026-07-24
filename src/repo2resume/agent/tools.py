@@ -34,7 +34,7 @@ loop 只跟 Registry 打交道；加工具就 register，不动 loop。
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Any, Protocol
+from typing import Any, Literal, Protocol
 
 from pydantic import BaseModel
 
@@ -122,6 +122,9 @@ class Tool(BaseModel):
     description: str
     params_model: type[BaseModel]
     handler: Callable[..., Any]
+    # 工具自声明的风险等级（事实）：readonly / write / network。
+    # 权限策略（PermissionHook）基于此决定要不要问用户，工具自己不决定「要不要确认」。
+    risk: Literal["readonly", "write", "network"] = "readonly"
 
     def json_schema(self) -> dict[str, Any]:
         """空 1（已完成）：生成 OpenAI / LiteLLM 风格的 function schema。

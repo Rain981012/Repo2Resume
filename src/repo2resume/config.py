@@ -22,6 +22,9 @@ class AppConfig(BaseModel):
     llm_api_key: str | None = None
     llm_model: str = DEFAULT_LLM_MODEL
     llm_fallback_model: str | None = DEFAULT_LLM_FALLBACK_MODEL
+    # 可选：覆盖 litellm provider 默认端点。例如 zai/ 默认打国际 api.z.ai，
+    # 国内不走代理时设成 https://open.bigmodel.cn/api/paas/v4 直连智谱国内端点。
+    llm_api_base: str | None = None
     writer_model: str | None = None
     critic_model: str | None = None
     embed_model: str = DEFAULT_EMBED_MODEL
