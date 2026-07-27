@@ -138,11 +138,10 @@ def compute_recall_at_k(
       return found / len(expected_doc_ids)
     """
     if not expected_doc_ids:
-      return 0.0
+        return 0.0
     top_k = {h.doc_id for h in hits[:k]}
     found = len(expected_doc_ids & top_k)
     return found / len(expected_doc_ids)
-
 
 
 def compute_mrr(
@@ -170,8 +169,8 @@ def compute_mrr(
       return 0.0
     """
     for rank, hit in enumerate(hits, start=1):
-      if hit.doc_id in expected_doc_ids:
-        return 1.0/rank
+        if hit.doc_id in expected_doc_ids:
+            return 1.0 / rank
     return 0.0
 
 

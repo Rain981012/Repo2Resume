@@ -164,14 +164,15 @@ def reciprocal_rank_fusion(
       return [SearchHit(...) for i, doc_id in enumerate(sorted_ids[:top_k], start=1)]
     """
     from collections import defaultdict
+
     scores = defaultdict(float)  # 访问不存在的 key 自动返回 0.0
     text_map = {}
     for hit in vector_hits:
-      scores[hit.doc_id] += 1.0 / (k + hit.rank)
-      text_map.setdefault(hit.doc_id, hit.text)
+        scores[hit.doc_id] += 1.0 / (k + hit.rank)
+        text_map.setdefault(hit.doc_id, hit.text)
     for hit in keyword_hits:
-      scores[hit.doc_id] += 1.0 / (k + hit.rank)
-      text_map.setdefault(hit.doc_id, hit.text)
+        scores[hit.doc_id] += 1.0 / (k + hit.rank)
+        text_map.setdefault(hit.doc_id, hit.text)
     sorted_ids = sorted(scores, key=scores.get, reverse=True)
     result = []
     for i, doc_id in enumerate(sorted_ids[:top_k], start=1):
@@ -185,7 +186,6 @@ def reciprocal_rank_fusion(
             )
         )
     return result
-
 
 
 def hybrid_search(
@@ -224,7 +224,7 @@ def hybrid_search(
       return reciprocal_rank_fusion(vector_hits, keyword_hits, top_k=top_k, k=k)
     """
     if not query.strip():
-      return []
+        return []
     vector_hits = store.vector_search(query, top_k=vector_top)
     keyword_hits = store.keyword_search(query, top_k=keyword_top)
     return reciprocal_rank_fusion(vector_hits, keyword_hits, top_k=top_k, k=k)

@@ -297,11 +297,13 @@ class LLMClient:
         cost: float | None
         try:
             # 流式没有完整 response 对象，用 token 数估算成本
-            cost = float(litellm.completion_cost(
-                model=resolved,
-                prompt_tokens=input_tokens,
-                completion_tokens=output_tokens,
-            ))
+            cost = float(
+                litellm.completion_cost(
+                    model=resolved,
+                    prompt_tokens=input_tokens,
+                    completion_tokens=output_tokens,
+                )
+            )
         except Exception:  # noqa: BLE001
             cost = None
         return (

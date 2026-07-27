@@ -634,8 +634,12 @@ def chat(
         # on_token=_on_token,  # 暂时禁用 streaming，排查卡死问题
     )
     loop = AgentLoop(
-        llm=llm, registry=reg, assembler=assembler, context=ctx,
-        max_rounds=8, max_repeated_tool=5,
+        llm=llm,
+        registry=reg,
+        assembler=assembler,
+        context=ctx,
+        max_rounds=8,
+        max_repeated_tool=5,
     )
 
     console.print(

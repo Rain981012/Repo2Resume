@@ -243,9 +243,7 @@ class VectorStore:
     # High-level helpers
     # ------------------------------------------------------------------
 
-    def upsert_profile_materials(
-        self, profile: SkillProfile, stats: RepoStatsBundle
-    ) -> int:
+    def upsert_profile_materials(self, profile: SkillProfile, stats: RepoStatsBundle) -> int:
         """把技能画像与统计里的项目素材拆成 DocumentChunk 并索引。"""
         chunks: list[DocumentChunk] = []
 

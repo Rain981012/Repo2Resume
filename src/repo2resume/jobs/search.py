@@ -79,8 +79,7 @@ _DEFAULT_MOCK_JOBS: list[dict[str, Any]] = [
 class JobSource(Protocol):
     """职位源接口：给定 query，返回 Job 列表。"""
 
-    def fetch(self, query: str, count: int) -> list[Job]:
-        ...
+    def fetch(self, query: str, count: int) -> list[Job]: ...
 
 
 # 中文方向词 → 英文检索词，避免「Python 后端开发」几乎只靠 "python" 命中。

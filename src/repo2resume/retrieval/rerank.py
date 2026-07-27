@@ -81,8 +81,7 @@ class Reranker(Protocol):
       - Protocol 让调用方只关心接口，不关心具体实现，方便切换和单测 mock。
     """
 
-    def rerank(self, query: str, hits: list[SearchHit], *, top_k: int = 5) -> list[SearchHit]:
-        ...
+    def rerank(self, query: str, hits: list[SearchHit], *, top_k: int = 5) -> list[SearchHit]: ...
 
 
 class LLMReranker:
@@ -161,9 +160,7 @@ class CrossEncoderReranker:
             return
         from sentence_transformers import CrossEncoder
 
-        self._model = CrossEncoder(
-            self.model_id, device=self.device, max_length=self.max_length
-        )
+        self._model = CrossEncoder(self.model_id, device=self.device, max_length=self.max_length)
 
     def rerank(self, query: str, hits: list[SearchHit], *, top_k: int = 5) -> list[SearchHit]:
         """对 hits 按 query 相关度重排，返回 top_k。
@@ -203,7 +200,6 @@ class CrossEncoderReranker:
                 )
             )
         return result_hits
-
 
 
 # ---------------------------------------------------------------------------
@@ -267,4 +263,3 @@ def _parse_scores(content: str, valid_ids: list[str]) -> dict[str, float]:
         if key in valid_ids_set:
             result[key] = float(value)
     return result
-

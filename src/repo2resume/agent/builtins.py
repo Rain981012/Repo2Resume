@@ -298,9 +298,7 @@ def make_search_jobs_tool(
         seen_ids: set[str] = set()
         jobs: list[Any] = []
         for q in queries:
-            for j in search_jobs(
-                q, count=per_query, config=config, db=db, source=source
-            ):
+            for j in search_jobs(q, count=per_query, config=config, db=db, source=source):
                 if j.id not in seen_ids:
                     seen_ids.add(j.id)
                     jobs.append(j)
