@@ -29,7 +29,8 @@ docs/put_in_practice/
 ├── PhaseB/
 │   ├── 01_phase_1_repo_analysis.md   ← Phase 0/1：CLI 分析 + fact sheet 验收
 │   ├── 02_phase_2_harness.md          ← Phase 2：手写 agent loop + chat + 会话持久化
-│   └── 03_phase_2_5_lifecycle_hooks.md ← Phase 2.5：lifecycle hooks（权限/观测/错误恢复）
+│   ├── 03_phase_2_5_lifecycle_hooks.md ← Phase 2.5：lifecycle hooks（权限/观测/错误恢复）
+│   └── 04_phase_3_retrieval_jobs.md    ← Phase 3：RAG 检索 + mock 职位匹配
 └── …
 ```
 

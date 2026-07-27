@@ -117,12 +117,16 @@ class AgentLoop:
         assembler: PromptAssembler,
         context: ContextManager,
         max_rounds: int = 10,
+        max_repeated_tool: int = 3,
     ) -> None:
         self._llm = llm
         self._registry = registry
         self._assembler = assembler
         self._context = context
         self._max_rounds = max_rounds
+        # Phase 2.5：重复调用卡死检测。连续 max_repeated_tool 次调同一工具名 → 判定卡死，停。
+        # 防模型反复调同一工具陷入死循环（max_rounds 是硬上限，但这个能更早、更准地停）。
+        self._max_repeated_tool = max_repeated_tool
 
     def _execute_tools(self, tool_calls: list[ToolCall]) -> None:
         """空 1：执行一批工具调用，把结果回填进 context。
@@ -141,10 +145,19 @@ class AgentLoop:
                   self._context.add_tool_result(tc.id, str(result))
         """
         for tc in tool_calls:
+            if self._on_event:
+                self._on_event("tool_start", tc.name)
             result = self._registry.call(tc.name, tc.arguments)
+            if self._on_event:
+                self._on_event("tool_done", tc.name)
             self._context.add_tool_result(tc.id, str(result))
 
-    def run(self, user_input: str, state: dict[str, Any] | None = None) -> str:
+    def run(
+        self,
+        user_input: str,
+        state: dict[str, Any] | None = None,
+        on_event: Callable[[str, Any], None] | None = None,
+    ) -> str:
         """空 2 + 空 3 + 空 4：主循环。
 
         空 2 —— 准备：
@@ -177,12 +190,20 @@ class AgentLoop:
         # 空2
         self._context.add("user", user_input)
         self._context._system = self._assembler.build(state)
+        self._on_event = on_event
+
+        # 空 5（Phase 2.5 卡死检测）：跟踪连续同名工具调用次数
+        # last_sig = 上一轮调用的工具名元组（sorted），repeat = 连续重复次数
+        last_sig: tuple[str, ...] | None = None
+        repeat = 0
 
         # 空3
         for _ in range(self._max_rounds):
             messages = self._context.messages()
             tools = self._registry.list_schemas()
             resp = self._llm(messages, tools)
+            if on_event:
+                on_event("llm_response", resp)
             if resp.tool_calls:
                 tc_dicts = [
                     {
@@ -197,6 +218,24 @@ class AgentLoop:
                 ]
                 self._context.add("assistant", "", tool_calls=tc_dicts)
                 self._execute_tools(resp.tool_calls)
+
+                # 空 5（Phase 2.5 卡死检测）：连续同名工具调用超阈值则停
+                # 步骤:
+                #   1) sig = tuple(sorted(tc.name for tc in resp.tool_calls))
+                #   2) if sig == last_sig: repeat += 1
+                #      else: last_sig = sig; repeat = 1
+                #   3) if repeat >= self._max_repeated_tool:
+                #          return f"[检测到连续 {repeat} 次重复调用 {sig}，判定卡死，停止]"
+
+                sig = tuple(sorted(tc.name for tc in resp.tool_calls))
+                if sig == last_sig:
+                    repeat += 1
+                else:
+                    last_sig = sig
+                    repeat = 1
+                if repeat >= self._max_repeated_tool:
+                    return f"[检测到连续 {repeat} 次重复调用 {sig}，判定卡死，停止]"
+
                 continue
             else:
                 self._context.add("assistant", resp.content or "")

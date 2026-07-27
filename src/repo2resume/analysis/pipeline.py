@@ -54,7 +54,7 @@ def mine_with_cache(
             key = repo_cache_key(repo, head, options)
             cached = get_cached_project(cache, key)
             if cached is not None and cached.head_commit == head:
-                logger.info("cache hit %s", key)
+                logger.debug("cache hit %s", key)
                 results.append(cached)
                 continue
             project = mine_one(repo, options)

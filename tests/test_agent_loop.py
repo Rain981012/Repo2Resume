@@ -72,3 +72,28 @@ def test_tool_result_recorded_in_history() -> None:
     loop.run("go")
     assert seen["tool_msg"]["content"] == "3"
     assert seen["tool_msg"]["tool_call_id"] == "c1"
+
+
+def test_on_event_fires_for_tool_calls() -> None:
+    """on_event 回调应在 LLM 响应、工具开始/结束时触发，供 CLI 显示 spinner 状态。"""
+    events: list[tuple[str, ...]] = []
+
+    def llm(messages, tools):
+        if "tool" in [m["role"] for m in messages]:
+            return LLMResponse(content="done")
+        return LLMResponse(tool_calls=[ToolCall(id="c1", name="add", arguments={"a": 1, "b": 2})])
+
+    def on_event(kind, data):
+        events.append((kind, data))
+
+    loop = _make_loop(llm)
+    loop.run("go", on_event=on_event)
+
+    # 应该看到：1 次 llm_response(带 tool_calls) + 1 次 tool_start + 1 次 tool_done + 1 次 llm_response(最终)
+    kinds = [e[0] for e in events]
+    assert "llm_response" in kinds
+    assert "tool_start" in kinds
+    assert "tool_done" in kinds
+    # tool_start 的 data 应该是工具名 "add"
+    tool_start = next(e for e in events if e[0] == "tool_start")
+    assert tool_start[1] == "add"

@@ -97,107 +97,18 @@ loop.run("分析一下我的仓库")
 
 ---
 
-## 1.6 核心概念详解（每个组件是什么、为什么需要）
+## 1.6 组件一览（细节见 §5 五问）
 
-### ① Tool —— 一个「带说明书的可执行函数」
+| 组件 | 一句话职责 |
+| ---- | ---------- |
+| Tool | 带说明书的可执行函数（schema + handler） |
+| ToolRegistry | 名册 + 分发：register / list_schemas / call |
+| ContextManager | 会话历史、回填 tool 结果、token/compaction |
+| PromptAssembler | 每轮重建 system = base + state + tools |
+| AgentLoop | decide → act → observe 循环 |
+| LLM Adapter | litellm 原生响应 → `LLMResponse` |
 
-**是什么**：`Tool` 是把「一个普通 Python 函数」包装成「LLM 能理解并调用的能力」的容器。一个 Tool 里装着四样东西：
-
-- `name`：工具名（LLM 调用时用，如 `analyze_repo`）
-- `description`：自然语言说明（告诉 LLM「这个工具能干啥、什么时候该用」）
-- `params_model`：一个 Pydantic 类，描述参数的结构和类型
-- `handler`：真正干活的 Python 函数
-
-**为什么需要**：LLM 本身只会生成文本，不会执行代码。要让 agent「能查仓库、能搜职位」，必须给它一个「可调用清单」。Tool 就是这个清单里的一项——它把「函数」翻译成「LLM 看得懂的说明书 + 可被安全调用的执行器」。
-
-**两个关键方法**：
-- `json_schema()`：把 Pydantic 参数类转成 JSON Schema，喂给 LLM 的 `tools=` 参数。LLM 据此知道「调这个工具要传什么字段、什么类型」。
-- `call(arguments)`：拿到 LLM 给的参数字典，先用 Pydantic 校验（类型对不对、缺没缺字段），通过才调 handler。**校验在前、执行在后**——这是防 LLM 乱传参的护栏。
-
-**类比**：Tool 像餐厅菜单上的一道菜——名字、描述、配料表（schema）写在菜单上给客人（LLM）看；真正做菜的是后厨（handler）。客人点菜（tool_call），服务员（Tool.call）先核对配料齐不齐，再下单给后厨。
-
-### ② ToolRegistry —— 工具的「名册 + 分发台」
-
-**是什么**：一个集中管理所有 Tool 的字典-like 容器，提供 `register / get / list_schemas / call` 四个方法。
-
-**为什么需要**：
-- **可扩展**：加新工具只需 `registry.register(tool)`，不用改 loop 一行代码。Phase 1 的 `analyze` 能零改动接进来，靠的就是这个。
-- **单一来源**：loop 每轮从 registry 拉 schema 喂 LLM，从 registry 查名调 handler——工具清单只在一个地方维护，不会散落各处。
-- **隔离**：loop 不认识具体工具，只认识 registry 这层接口。换工具、加工具、删工具，loop 无感。
-
-**类比**：Registry 像公司的「内部服务目录」——员工（loop）不需要记住每个服务在哪，只要查目录（list_schemas 给 LLM 看）或按名调（call 转发给 handler）。
-
-### ③ ContextManager —— 会话历史的「账房先生」
-
-**是什么**：管理发给 LLM 的消息序列（messages）。它干三件事：
-- `add(role, content, tool_calls=...)`：往历史里加一条消息（user / assistant / 带 tool_calls 的 assistant）
-- `add_tool_result(id, result)`：把工具执行结果按 `role=tool + tool_call_id` 回填进历史
-- `messages()`：吐出「system + 全部历史」给 LLM
-- `token_count()` + `maybe_compact()`：估当前 token 数，超预算就压缩
-
-**为什么需要**：
-- **LLM 是无状态的**：每次调用都是独立请求，它不记得上一句说了啥。必须把完整历史每次重发，对话才能接上。ContextManager 就是这个「历史的载体」。
-- **token 有上限**：历史越攒越长，迟早超模型窗口。compaction 是兜底——MVP 阶段「按条裁」（丢最老的几条），生产要「按完整轮次裁」避免拆散 tool_call 和它的结果配对。
-- **system 不进历史**：system prompt 是「每轮重建的视图」（见 assembler），不存进 `_messages`，避免裁剪时丢掉、也避免不同状态间漂移。
-
-**类比**：ContextManager 像法庭书记员——每句话都记下来（add），证人答完要归档（add_tool_result），法官要案卷时整理好递上去（messages），案卷太厚就抽掉最老的（compact）。
-
-### ④ PromptAssembler —— system prompt 的「动态拼装车间」
-
-**是什么**：每轮循环把 system prompt 拼成 `base + [当前状态] + [可用工具]` 三段。`build(state)` 返回一段字符串。
-
-**为什么需要**：
-- **system prompt 不是常量**：可用工具会变（注册了新工具）、当前状态会变（分析过哪个仓库、token 用了多少）。如果写死，就得每次手改；如果放历史里，又会被 compaction 裁掉。所以做成「每轮按当前状态重新拼」的函数。
-- **状态放 system 不放历史**：状态信息（如「已分析 socialdistribution，主语言 Python 99.5%」）放 system 里，每轮都看得到、不被裁剪、不污染历史。会话持久化只存历史不存 system，正是这个道理。
-- **工具说明自动同步**：注册新工具后，assembler 自动从 registry 拉 schema 渲染进 system，LLM 立刻知道有新工具可用。
-
-**类比**：Assembler 像每天早会的「 briefing 撰稿人」——公司使命（base）不变，但今天的状态（state）和手头能用的资源（tools）每天变，他每天重新写一份简报发给大家。
-
-### ⑤ AgentLoop —— agent 的「心脏 / 指挥」
-
-**是什么**：一个 `run(user_input) -> str` 方法，内部是 ReAct 风格的循环：**decide（LLM 决策）→ act（调工具）→ observe（回填结果）→ decide ...** 直到模型给纯文本或达 max_rounds。
-
-**为什么需要**：这是「agent 性质」的来源。没有 loop，LLM 只能一问一答；有了 loop，LLM 能「先调工具拿数据，再基于数据回答」——这就是 agent 和聊天机器人的本质区别。loop 把 tools / context / assembler / llm 四件套串起来，让「自主多步推理」成为可能。
-
-**三个停止条件**（面试必背）：
-1. LLM 返回纯文本（无 tool_calls）→ 任务完成，返回该文本
-2. 达到 `max_rounds` → 防死循环的硬上限
-3. （Phase 2.5 待加）工具异常 / 重复调用检测
-
-**为什么手写不用框架**：手写能逐行讲清每一步在干啥；用 LangChain 的话内核是黑盒。面试问「你的 loop 长什么样」能画出 decide-act-observe 图，比说「我用了 LangChain」得分高。
-
-**类比**：loop 像项目里的「执行 PM」——拿到需求（user_input），决定要不要查资料（调工具），查完再决定要不要再查，直到能给出结论（纯文本）或时间用完（max_rounds）。
-
-### ⑥ LLM Adapter —— 「翻译官」
-
-**是什么**：一个 `make_llm_adapter(client)` 工厂，返回 `llm(messages, tools) -> LLMResponse` 函数。把 litellm 的原生响应（带 `tool_calls` 对象、arguments 是 JSON 字符串）翻译成 loop 认识的 `LLMResponse{content, tool_calls: [ToolCall(id, name, arguments)]}`。
-
-**为什么需要**：
-- **隔离第三方 SDK 的脏细节**：litellm 的 tool_calls 是对象，arguments 是字符串要 `json.loads`，字段名跟 OpenAI 略有出入。loop 不该关心这些——它只想要「模型说了啥、要调啥工具、参数是啥」。adapter 把脏活全吞掉。
-- **可替换 LLM 后端**：明天换 OpenAI SDK、换 Anthropic SDK，只改 adapter，loop 一行不动。这是「依赖倒置」——loop 依赖自己定义的 `LLMResponse` 接口，不依赖具体 SDK。
-- **边界容错**：arguments 不是合法 JSON 时，adapter 吞掉异常返回空 dict，不让 loop 炸。又是「确定性兜概率」。
-
-**类比**：adapter 像涉外会议的「同传」——外宾（litellm）说的话格式各异，同传统一翻成「中文简报」（LLMResponse），领导（loop）只听简报做决策。
-
-### 串起来再看一遍
-
-```
-用户输入 ──→ loop.run()
-              │ 每轮：
-              ├─ context.messages()      取历史（账房递案卷）
-              ├─ registry.list_schemas()  取工具清单（目录给 LLM 看）
-              ├─ llm(messages, tools)     调模型（同传翻成 LLMResponse）
-              │
-              ├─ 有 tool_calls?
-              │    ├─ context.add(tool_calls)   记下「模型要调工具」
-              │    ├─ registry.call(name, args) 执行（校验+handler）
-              │    └─ context.add_tool_result   回填结果
-              │    └─ 继续下一轮
-              │
-              └─ 纯文本 → return（结束）
-```
-
-每个组件各司其职：**Tool 是能力、Registry 是目录、Context 是记忆、Assembler 是简报、Loop 是指挥、Adapter 是翻译**。少任何一块，agent 都跑不起来。
+串起来：Tool 是能力、Registry 是目录、Context 是记忆、Assembler 是简报、Loop 是指挥、Adapter 是翻译。
 
 ---
 
@@ -295,41 +206,233 @@ loop.run("分析一下我的仓库")
 
 ---
 
-## 5. 本阶段知识点（面试向）
+## 5. 本阶段知识点（面试向 · 五问模板）
 
-| 概念 | 本项目怎么练到 | 可背一句 |
-|---|---|---|
-| Agent = Model + Harness | 手写 loop + tools + context + assembler | harness 是模型外的一切：循环/工具/上下文/权限/恢复 |
-| Tool-use 循环 | `AgentLoop.run` | decide → act → observe → decide，三停止条件 |
-| Function calling 协议 | `Tool.json_schema` + `tool_call_id` 回填 | assistant 发 tool_call(带 id) → role=tool 回填对上 id |
-| ReAct vs 原生 function calling | 本项目走原生 tools= | ReAct 文本抠 Action 易错；原生结构化更稳 |
-| Context compaction | `maybe_compact` | 长会话不压缩就 context rot；MVP 按条裁，生产按轮次裁 |
-| 依赖注入单测 | `count_tokens` / `llm` 可注入 | 外部依赖抽成参数，单测注入假实现，不联网 |
-| Prompt as function | `PromptAssembler.build(state)` | system prompt 是每轮重建的视图，不是常量 |
-| 会话持久化 | 只存历史不存 system | system 是函数；存了会漂移 |
-| 确定性兜概率 | `_parse_since` 容错 + Pydantic 校验 | 边界用确定性代码归一化模型输出 |
+每个技术点按同一套问法答（与 Phase 3 复盘同标准）：
 
-**短答示例**
-
-- **Q：你的 agent loop 和 LangGraph 一样吗？**  
-  不一样。我的 loop 是普通 while 循环（decide-act-observe），没有图/节点/边；LangGraph 是状态图编排，适合多智能体。我这是 LangChain AgentExecutor 的手写内核，Phase 4 做 subagent 才会碰到图的味道。
-
-- **Q：循环什么时候停？**  
-  ① LLM 返回纯文本（无 tool_calls）→ 完成；② 达到 max_rounds → 防死循环；③（待加）工具异常 / 重复调用检测。max_rounds 是硬上限，必加。
-
-- **Q：为什么工具结果要回填进历史？**  
-  下一轮模型要看到「我上轮调了什么、拿到什么」才能继续推理。回填进历史 = 让工具结果成为会话一部分；代价是历史膨胀 → 需要 compaction。
-
-- **Q：你的 loop 有什么坑？**  
-  ① 模型反复调同一工具 → 死循环，靠 max_rounds 兜底（Phase 2.5 加重复检测）；② 工具异常目前直接炸，待加 error recovery；③ 没做权限/HITL。能说出「还没做」的边界比假装完美更得分。
+1. **X 是什么？**
+2. **为什么要在 Repo2Resume 里用它？**
+3. **为什么不用……（更偷懒 / 更常见的替代）？**
+4. **有什么优缺点？**
+5. **为什么不用其他同类技术 / 竞品？**
 
 ---
 
+### ① Tool（工具抽象）
+
+**1. 是什么？**  
+把普通 Python 函数包装成 LLM 可调用的能力：`name` / `description` / `params_model`（Pydantic）/ `handler`。`json_schema()` 生成 function calling 说明书；`call(args)` 先校验再执行。
+
+**2. 为什么要在这个项目用它？**  
+LLM 只会生成文本，不会执行代码。要把「分析仓库」等能力交给 agent，必须有「说明书 + 执行器」。Pydantic 让 schema 与校验同源，不漂移。
+
+**3. 为什么不用「loop 里一堆 if name == ...」直接调函数？**  
+每加能力就改 loop，违反开闭原则；参数校验散落各处；没法统一 list_schemas 喂给模型。
+
+**4. 优缺点？**  
+
+| 优点 | 缺点 |
+| ---- | ---- |
+| 校验在前、执行在后，兜住乱传参 | 多一层抽象，简单脚本显得重 |
+| schema 自动生成，与校验同源 | LLM 仍可能传 `"null"` 等脏值，边界还要清洗 |
+
+**5. 为什么不用其他技术？**  
+- **纯 JSON Schema 手写 dict：** 易与运行时校验漂移。  
+- **MCP / 外部工具协议（当时）：** 学习目标是 harness 内核，先本地 Tool 即可；协议可后接。  
+- **LangChain Tool 基类：** 能用但绑框架；本项目要手写讲清。
+
+---
+
+### ② ToolRegistry
+
+**1. 是什么？**  
+工具名册 + 分发台：`register` / `get` / `list_schemas` / `call`。loop 只跟 Registry 打交道。
+
+**2. 为什么要在这个项目用它？**  
+加能力 = register，不动 loop。Phase 1 的 analyze、Phase 3 的 search_jobs 都是同一挂载点。单一来源列出 schema，避免工具清单散落。
+
+**3. 为什么不用「全局 dict 或在 loop 里硬编码工具列表」？**  
+难测、难扩展、权限/hook 没有单一 chokepoint（Phase 2.5 的 hook 正是挂在 `call` 上）。
+
+**4. 优缺点？**  
+
+| 优点 | 缺点 |
+| ---- | ---- |
+| 可扩展、可隔离 | 间接性：看 loop 不知有哪些具体工具 |
+| 为 hooks 预留 chokepoint | 同名重复注册需约定（本项目 raise） |
+
+**5. 为什么不用其他技术？**  
+- **依赖注入容器（复杂 IoC）：** MVP 过重。  
+- **插件系统扫目录：** 可后做；先显式 register 更清晰。
+
+---
+
+### ③ ContextManager（会话上下文）
+
+**1. 是什么？**  
+管理发给 LLM 的消息序列：`add` / `add_tool_result` / `messages`；可选 `token_count` + `maybe_compact`。
+
+**2. 为什么要在这个项目用它？**  
+LLM 无状态，必须每次重发历史才能多轮工具调用。tool 结果要按 `role=tool + tool_call_id` 回填，模型才能看到观察。
+
+**3. 为什么不用「只拼当前 user 一句、不存历史」？**  
+多轮 tool-use 无法进行；续聊、`--resume` 也没基础。
+
+**4. 优缺点？**  
+
+| 优点 | 缺点 |
+| ---- | ---- |
+| 对话可接续；工具结果可观察 | 历史膨胀 → 需 compaction |
+| system 不进 `_messages`，由 assembler 重建 | MVP「按条裁」可能拆散 tool_call 配对 |
+
+**5. 为什么不用其他技术？**  
+- **把一切塞进一条超长 user message：** 难维护协议，难裁剪。  
+- **向量记忆当唯一记忆：** 丢精确 tool_call 配对；可作补充不能替代。  
+- **LangChain Memory 类：** 黑盒；本项目要自己控消息形状。
+
+---
+
+### ④ PromptAssembler
+
+**1. 是什么？**  
+每轮把 system 拼成 `base + [state] + [tools 说明]` 的函数：`build(state) -> str`。
+
+**2. 为什么要在这个项目用它？**  
+工具集与状态会变；system 若写死或塞进历史，会被裁掉或漂移。每轮重建 = 视图，不是常量。
+
+**3. 为什么不用「写死一个超长 system 字符串」？**  
+加工具要手改字符串；状态过期；和持久化「只存历史」冲突。
+
+**4. 优缺点？**  
+
+| 优点 | 缺点 |
+| ---- | ---- |
+| 与 registry 自动同步工具说明 | 每轮重建有微小开销 |
+| 状态放 system，不被 compaction 误删 | base 写太长仍会干扰模型（Phase 3 踩过） |
+
+**5. 为什么不用其他技术？**  
+- **Jinja 大模板文件当唯一来源：** 可用，但工具列表仍应来自 registry，避免双源。  
+- **把状态当 user 消息插入：** 污染对话、易被裁。
+
+---
+
+### ⑤ AgentLoop（手写 tool-use 循环）
+
+**1. 是什么？**  
+`run(user_input) -> str`：ReAct 风格 **decide → act → observe**，直到纯文本或 `max_rounds`（及 Phase 2.5 卡死检测）。
+
+**2. 为什么要在这个项目用它？**  
+这是 agent 与「一问一答聊天」的本质差别。手写能逐行讲清停止条件与回填协议，是本项目技术核心（【手写】★）。
+
+**3. 为什么不用「单次 LLM 调用、禁止多轮工具」？**  
+分析仓库等任务必须先调工具拿数再回答；单次调用只能幻觉数字。
+
+**4. 优缺点？**  
+
+| 优点 | 缺点 |
+| ---- | ---- |
+| 行为透明、可单测注入假 LLM | 要自己处理死循环、异常、权限 |
+| 面试能画图讲清 | 没有图编排，复杂多智能体要 Phase 4 再演进 |
+
+**5. 为什么不用其他技术？**  
+- **LangChain AgentExecutor / LangGraph：** 交付快但内核黑盒；本项目目标是吃透 harness。LangGraph 更适合后面多智能体状态图。  
+- **纯文本 ReAct（抠 Action:）：** 易解析失败；本项目走**原生 function calling**（`tools=`），结构化更稳。  
+- **固定流水线脚本：** 不是 agent，扩展性差。
+
+**停止条件（必背）：** ① 纯文本回复；② `max_rounds`；③ 连续同名工具卡死（2.5）；工具异常由 hook 转文本而非直接炸进程。
+
+---
+
+### ⑥ LLM Adapter
+
+**1. 是什么？**  
+`make_llm_adapter(client)` → `llm(messages, tools) -> LLMResponse`。把 litellm 的 tool_calls 对象 / JSON 字符串 arguments 译成 loop 的数据结构。
+
+**2. 为什么要在这个项目用它？**  
+隔离第三方 SDK 脏细节；loop 只依赖自己的 `LLMResponse`（依赖倒置）。换供应商只改 adapter。
+
+**3. 为什么不用「loop 里直接调 litellm.completion」？**  
+loop 与供应商耦合；单测难；arguments 解析失败会炸循环。
+
+**4. 优缺点？**  
+
+| 优点 | 缺点 |
+| ---- | ---- |
+| 可替换后端；边界容错 | 多一层翻译，要跟上 SDK 变化 |
+| 单测可整段替换假 llm | streaming 路径要额外适配（后来 Phase 3 加了） |
+
+**5. 为什么不用其他技术？**  
+- **直接绑 OpenAI SDK：** 换智谱/其他要大改。LiteLLM 统一多厂商，adapter 再收一层到本项目类型。  
+- **HTTP 自封装：** 重复造轮子，MVP 不值。
+
+---
+
+### ⑦ 会话持久化（只存历史不存 system）
+
+**1. 是什么？**  
+SQLite 保存 `ctx._messages`；`--resume` 载入。system 每次由 assembler 重建。
+
+**2. 为什么要在这个项目用它？**  
+关掉重开能续聊是 MVP 验收；system 是「函数视图」，存进去会漂移、也难随工具注册更新。
+
+**3. 为什么不用「把 system + 历史整包序列化」？**  
+工具列表一变，旧 system 过期；compaction/状态策略难演进。
+
+**4. 优缺点？**  
+
+| 优点 | 缺点 |
+| ---- | ---- |
+| 续聊；system 始终新鲜 | 不存 system 则跨版本行为可能变（通常是优点） |
+| 实现简单 | 要处理同秒排序等边角（rowid tiebreaker） |
+
+**5. 为什么不用其他技术？**  
+- **只存 Redis：** 易丢，不适合「会话档案」。本项目 Redis 用于缓存，会话落 SQLite。  
+- **外键聊天平台：** 超范围。
+
+---
+
+### ⑧ 依赖注入单测（假 LLM / 假 count_tokens）
+
+**1. 是什么？**  
+把 `llm`、`count_tokens` 做成可注入参数；测试用剧本式假 LLM，不联网。
+
+**2. 为什么要在这个项目用它？**  
+loop 分支（直接回复 / 单工具 / 多轮 / 超限）必须可回归；真打 API 贵且不稳。
+
+**3. 为什么不用「全靠手工 chat 点点点验收」？**  
+不可回归、易漏分支、CI 跑不了。
+
+**4. 优缺点？**  
+
+| 优点 | 缺点 |
+| ---- | ---- |
+| 快、稳、零费用 | 假 LLM 演不到真实模型傻调工具；需真跑补充 |
+
+**5. 为什么不用其他技术？**  
+- **录制回放 HTTP：** 可做，维护成本高。  
+- **只 integration 测：** 慢且 flaky。两者应互补：单测锁分支，真跑锁端到端。
+
+---
+
+### 速记对照表
+
+| 我用了 | 为什么不用常见替代 | 一句话 |
+| ------ | ------------------ | ------ |
+| 手写 Loop | LangChain Executor / 写死脚本 | 吃透 harness；可讲停止条件 |
+| 原生 function calling | 文本 ReAct 抠 Action | 结构化稳 |
+| Tool + Registry | loop 内 if-else | 开闭；hook 有挂点 |
+| Context + 回填 | 无历史单次调用 | 多轮工具必需 |
+| Assembler 重建 system | 写死 / 存库 system | 防漂移 |
+| Adapter | loop 直调 litellm | 依赖倒置 |
+| 只存历史 | 整包存 system | system 是视图 |
+| 注入假 LLM | 只靠真 API | 可回归 |
+
 ## 6. 下一步
 
-1. **Phase 2.5 Harness 加固**：lifecycle hooks（pre/post-tool）、权限分级（只读放行/写联网确认）、observability（trace 落 SQLite + `/cost`）、error recovery（异常回传 LLM 重试、重复调用卡死检测）。
-2. **compaction 升级**：从「按条裁」改成「按完整轮次裁」，避免拆散 tool_call ↔ tool 结果配对。
-3. **进入 Phase 3**：职位搜索 + 检索（Tavily / ChromaDB / BM25+向量混合）。
+1. ~~Phase 2.5~~ → 已完成，见 `03_phase_2_5_lifecycle_hooks.md`。
+2. ~~Phase 3~~ → 已完成，见 `04_phase_3_retrieval_jobs.md`。
+3. **compaction 升级**（仍待做）：按完整轮次裁，避免拆散 tool_call ↔ tool 结果。
+4. **进入 Phase 4**：Writer / Critic、溯源 bullet、子 agent。
 
 ---
 
@@ -338,5 +441,7 @@ loop.run("分析一下我的仓库")
 - **做了什么：** 手写 harness 四件套 + chat 接线 + 会话持久化；真跑 agent 自主分析仓库。  
 - **Gate：** 34 tests 绿；chat 真跑数字与 stats 一致、不幻觉；`--resume` 续聊。  
 - **一句话：** agent = LLM + 循环 + 工具；循环我手写，工具靠注册，上下文靠 compaction，状态放 system。  
-- **踩坑：** litellm tools 隐性依赖 fastapi/orjson；模型传 `"null"` 字符串；长跑 REPL 不热更；同秒排序 flaky。  
-- **下一站：** Phase 2.5 加固（hooks/权限/observability/恢复）→ Phase 3 检索。
+- **面试答法：** 见 §5 — 每个组件按「是什么 → 为什么用 → 为什么不用… → 优缺点 → 为什么不用竞品」。  
+- **流程：** 见 §1.5。  
+- **踩坑：** litellm tools 隐性依赖 fastapi/orjson；模型传 `"null"`；长跑 REPL 不热更；同秒排序 flaky。  
+- **下一站：** Phase 4（2.5/3 已完成）。

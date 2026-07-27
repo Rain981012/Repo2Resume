@@ -14,7 +14,11 @@ from rich.panel import Panel
 from rich.table import Table
 
 from repo2resume import __version__
-from repo2resume.agent.builtins import make_analyze_tool
+from repo2resume.agent.builtins import (
+    make_analyze_tool,
+    make_find_project_materials_tool,
+    make_search_jobs_tool,
+)
 from repo2resume.agent.context import ContextManager
 from repo2resume.agent.hooks import (
     ErrorRecoveryHook,
@@ -53,8 +57,38 @@ logger = logging.getLogger(__name__)
 
 
 def _configure_logging(verbose: bool) -> None:
+    """配置日志：默认只显示本项目 INFO；第三方库默认静音，避免刷屏。
+
+    LiteLLM 会在 logger 上挂自己的 StreamHandler（level=DEBUG），只 setLevel 压不住，
+    需要一并清空 handlers。--verbose 时放开所有 DEBUG（含第三方）。
+    """
     level = logging.DEBUG if verbose else logging.INFO
-    logging.basicConfig(level=level, format="%(levelname)s %(name)s: %(message)s")
+    logging.basicConfig(level=level, format="%(levelname)s %(name)s: %(message)s", force=True)
+    if not verbose:
+        for name in (
+            "LiteLLM",
+            "litellm",
+            "LiteLLM Router",
+            "LiteLLM Proxy",
+            "openai",
+            "httpx",
+            "httpcore",
+            "pydriller",
+            "pydriller.repository",
+        ):
+            lg = logging.getLogger(name)
+            lg.setLevel(logging.CRITICAL)
+            lg.handlers.clear()
+            lg.propagate = False
+        # LiteLLM 全局开关：关掉它自带的 verbose / debug 打印
+        try:
+            import litellm
+
+            litellm.set_verbose = False
+            litellm.suppress_debug_info = True
+            litellm.turn_off_message_logging = True
+        except Exception:  # noqa: BLE001
+            pass
 
 
 @app.callback()
@@ -374,10 +408,103 @@ def analyze(
 
 
 @app.command()
-def jobs() -> None:
-    """Search and rank jobs from the skill profile. (Phase 3)"""
-    console.print("[yellow]Not implemented yet — coming in Phase 3.[/yellow]")
-    raise typer.Exit(code=1)
+def jobs(
+    query: Annotated[
+        str | None,
+        typer.Option("--query", "-q", help="Job search query. Default: primary skill direction."),
+    ] = None,
+    count: Annotated[
+        int,
+        typer.Option("--count", "-n", help="Number of jobs to show."),
+    ] = 5,
+    source: Annotated[
+        str,
+        typer.Option("--source", help="Job source: mock or tavily."),
+    ] = "mock",
+    output: Annotated[
+        Path | None,
+        typer.Option("--output", "-o", help="Write scored jobs as JSON."),
+    ] = None,
+) -> None:
+    """Search and rank jobs from the latest skill profile."""
+    from repo2resume.jobs.matcher import JobMatcher
+    from repo2resume.jobs.search import search_jobs
+    from repo2resume.retrieval.embedder import build_embedder
+
+    cfg = load_config()
+    db = open_db(cfg.db_path)
+    try:
+        profile = db.conn.execute(
+            "SELECT payload_json FROM skill_profiles ORDER BY id DESC LIMIT 1"
+        ).fetchone()
+        if profile is None:
+            console.print(
+                "[red]No skill profile found.[/red] Run `repo2resume analyze` first, "
+                "or use `repo2resume chat` to analyze your repos."
+            )
+            raise typer.Exit(code=1)
+
+        skill_profile = SkillProfile.model_validate_json(profile["payload_json"])
+        if query:
+            queries = [query]
+        else:
+            queries = [
+                skill_profile.primary_direction,
+                *skill_profile.secondary_directions,
+            ]
+            queries = [q.strip() for q in queries if q and q.strip()]
+        search_label = " / ".join(queries)
+
+        embedder = build_embedder(cfg.embed_model, device="cpu")
+        llm = LLMClient(cfg)
+        matcher = JobMatcher(embedder, llm)
+
+        seen: set[str] = set()
+        jobs = []
+        for q in queries:
+            for j in search_jobs(q, count=max(count, 3), config=cfg, db=db, source=source):
+                if j.id not in seen:
+                    seen.add(j.id)
+                    jobs.append(j)
+        if not jobs:
+            console.print("[yellow]No jobs found.[/yellow]")
+            raise typer.Exit(code=0)
+
+        scores = matcher.match_all(skill_profile, jobs, top_k=max(count, min(len(jobs), count + 2)))
+        scores = scores[:count]
+
+        table = Table(title=f"Job matches for: {search_label}")
+        table.add_column("Rank", justify="right")
+        table.add_column("Title")
+        table.add_column("Company")
+        table.add_column("Overall", justify="right")
+        table.add_column("Vector", justify="right")
+        table.add_column("LLM", justify="right")
+        table.add_column("Reason")
+        for rank, s in enumerate(scores, start=1):
+            job = next((j for j in jobs if j.id == s.job_id), None)
+            title = job.title if job else s.job_id
+            company = job.company if job else ""
+            table.add_row(
+                str(rank),
+                title,
+                company or "—",
+                f"{s.overall_score:.0%}",
+                f"{s.vector_score:.0%}" if s.vector_score is not None else "—",
+                f"{s.llm_score:.0%}" if s.llm_score is not None else "—",
+                s.reason,
+            )
+        console.print(table)
+
+        if output:
+            payload = {
+                "query": search_query,
+                "jobs": [s.model_dump() for s in scores],
+            }
+            output.write_text(json.dumps(payload, ensure_ascii=False, indent=2))
+            console.print(f"[green]Wrote[/green] {output}")
+    finally:
+        db.close()
 
 
 @app.command()
@@ -410,6 +537,18 @@ def chat(
     reg = ToolRegistry()
     reg.register(make_analyze_tool(cfg, cache, db))
 
+    # Phase 3：加载本地 embedder，注册职位搜索与项目素材检索工具。
+    try:
+        from repo2resume.retrieval.embedder import build_embedder
+
+        embedder = build_embedder(cfg.embed_model)
+        reg.register(make_search_jobs_tool(cfg, db, embedder))
+        reg.register(make_find_project_materials_tool(cfg, db, embedder))
+        console.print(f"[dim]embedder loaded: {cfg.embed_model}[/dim]")
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Failed to load Phase 3 embedder: %s", exc)
+        console.print(f"[yellow]Phase 3 tools disabled: {exc}[/yellow]")
+
     # Phase 2.5 Step 3：权限分级 hook。
     # 事实/策略分离：工具自声明 risk（Tool.risk），
     # 策略由 PermissionHook 按 needs_confirm_risks 决定。
@@ -429,10 +568,18 @@ def chat(
     )
 
     base = (
-        "你是 Repo2Resume 的简历助手。可以调用 analyze_repo 工具分析本地 git 仓库，"
-        "然后基于返回的统计摘要回答用户「我在某仓库做了什么」一类问题。"
-        "analyze_repo 的 paths 为空时会自动扫描 ./local_repos/，所以用户没给路径时"
-        "你不必追问，直接以空 paths 调用即可。不要编造数字；只引用工具返回的统计。回答用中文。"
+        "你是 Repo2Resume 的简历助手。可用工具：\n"
+        "1) analyze_repo：分析本地 git 仓库并生成技能画像（含 primary_direction）。"
+        "paths 为空时自动扫描 ./local_repos/，用户没给路径时不必追问。"
+        "如果用户自我介绍（如'我是Rain'），就把 ['Rain'] 作为 authors 参数传入，"
+        "工具会自动扩展到所有仓库中匹配的真实 git 身份。\n"
+        "2) search_jobs：基于技能画像搜索并匹配多条职位；query 可留空，"
+        "自动覆盖 primary + secondary 方向。\n"
+        "3) find_project_materials：根据 query 从画像中召回最相关的项目素材。\n"
+        "流程：用户说「开始/分析」时先调 analyze_repo；把 primary 与 secondary 方向告诉用户，"
+        "并问「要帮你按这些方向搜职位吗？」；用户确认后再调 search_jobs（query 留空即可）。"
+        "展示职位时覆盖主方向与次方向，不要只给一条。\n"
+        "不要编造数字；只引用工具返回的统计与检索结果。回答用中文。"
     )
     assembler = PromptAssembler(base=base, registry=reg)
     ctx = ContextManager(system=assembler.build(None))
@@ -460,8 +607,36 @@ def chat(
     # PermissionDenied 不吞（ErrorRecoveryHook 内部守卫），照常抛到这里被 catch 显示给用户。
     reg.add_hook(ErrorRecoveryHook())
 
-    llm = make_llm_adapter(LLMClient(cfg, cache=cache))
-    loop = AgentLoop(llm=llm, registry=reg, assembler=assembler, context=ctx, max_rounds=8)
+    # 方案 2：adapter 拿 LLM usage 调 trace_sink 落 llm_traces，/cost 据此展示成本。
+    def _llm_trace_sink(usage):
+        db.record_llm_trace(
+            session_id,
+            usage.model,
+            usage.input_tokens,
+            usage.output_tokens,
+            usage.cost_usd,
+            usage.latency_ms,
+        )
+
+    # 流式输出：on_token 在 adapter 里逐 chunk 调用，这里停 spinner 并打印 token。
+    # _stream_ctx 跨回调共享状态（status 对象每轮变，streaming 标记是否已在流式输出）。
+    _stream_ctx = {"status": None, "streaming": False}
+
+    def _on_token(token: str) -> None:
+        if _stream_ctx["status"] is not None and not _stream_ctx["streaming"]:
+            _stream_ctx["status"].stop()
+            _stream_ctx["streaming"] = True
+        console.print(token, end="", highlight=False, soft_wrap=True)
+
+    llm = make_llm_adapter(
+        LLMClient(cfg, cache=cache),
+        trace_sink=_llm_trace_sink,
+        # on_token=_on_token,  # 暂时禁用 streaming，排查卡死问题
+    )
+    loop = AgentLoop(
+        llm=llm, registry=reg, assembler=assembler, context=ctx,
+        max_rounds=8, max_repeated_tool=5,
+    )
 
     console.print(
         Panel(
@@ -483,34 +658,89 @@ def chat(
             if user.strip().lower() in {"/quit", "/exit"}:
                 break
             if user.strip().lower() == "/cost":
-                stats = db.tool_trace_stats(session_id)
-                if stats["count"] == 0:
-                    console.print("[dim]本 session 暂无工具调用记录[/dim]")
+                tstats = db.tool_trace_stats(session_id)
+                lstats = db.llm_trace_stats(session_id)
+                if tstats["count"] == 0 and lstats["count"] == 0:
+                    console.print("[dim]本 session 暂无调用记录[/dim]")
                 else:
-                    tbl = Table(title=f"session {session_id} 工具调用统计", style="cyan")
-                    tbl.add_column("tool")
-                    tbl.add_column("count", justify="right")
-                    tbl.add_column("latency(ms)", justify="right")
-                    tbl.add_column("errors", justify="right")
-                    for name, s in stats["per_tool"].items():
-                        tbl.add_row(name, str(s["count"]), str(s["ms"]), str(s["errors"]))
-                    tbl.add_row(
-                        "[bold]total[/bold]",
-                        f"[bold]{stats['count']}[/bold]",
-                        f"[bold]{stats['total_ms']}[/bold]",
-                        f"[bold]{stats['errors']}[/bold]",
-                    )
-                    console.print(tbl)
+                    if lstats["count"] > 0:
+                        ltbl = Table(title=f"session {session_id} LLM 调用成本", style="magenta")
+                        ltbl.add_column("model")
+                        ltbl.add_column("count", justify="right")
+                        ltbl.add_column("in tok", justify="right")
+                        ltbl.add_column("out tok", justify="right")
+                        ltbl.add_column("cost($)", justify="right")
+                        ltbl.add_column("latency(ms)", justify="right")
+                        for name, s in lstats["per_model"].items():
+                            ltbl.add_row(
+                                name,
+                                str(s["count"]),
+                                str(s["input_tokens"]),
+                                str(s["output_tokens"]),
+                                f"{s['cost_usd']:.6f}",
+                                str(s["latency_ms"]),
+                            )
+                        ltbl.add_row(
+                            "[bold]total[/bold]",
+                            f"[bold]{lstats['count']}[/bold]",
+                            f"[bold]{lstats['total_input']}[/bold]",
+                            f"[bold]{lstats['total_output']}[/bold]",
+                            f"[bold]{lstats['total_cost']:.6f}[/bold]",
+                            f"[bold]{lstats['total_latency_ms']}[/bold]",
+                        )
+                        console.print(ltbl)
+                    if tstats["count"] > 0:
+                        tbl = Table(title=f"session {session_id} 工具调用统计", style="cyan")
+                        tbl.add_column("tool")
+                        tbl.add_column("count", justify="right")
+                        tbl.add_column("latency(ms)", justify="right")
+                        tbl.add_column("errors", justify="right")
+                        for name, s in tstats["per_tool"].items():
+                            tbl.add_row(name, str(s["count"]), str(s["ms"]), str(s["errors"]))
+                        tbl.add_row(
+                            "[bold]total[/bold]",
+                            f"[bold]{tstats['count']}[/bold]",
+                            f"[bold]{tstats['total_ms']}[/bold]",
+                            f"[bold]{tstats['errors']}[/bold]",
+                        )
+                        console.print(tbl)
                 continue
+            # 每段对话只提示一次所用模型（不再依赖 LiteLLM 刷屏日志）
+            console.print(f"[dim]model: {cfg.llm_model}[/dim]")
+
+            def _on_event(kind: str, data) -> None:
+                """AgentLoop 回调：工具调用显示 spinner，文本流式输出时停 spinner。"""
+                if kind == "tool_start":
+                    if _stream_ctx["streaming"]:
+                        _stream_ctx["streaming"] = False
+                        console.print()
+                    _stream_ctx["status"].update(f"[cyan]calling {data}...")
+                    _stream_ctx["status"].start()
+                elif kind == "tool_done":
+                    _stream_ctx["status"].update("[cyan]thinking...")
+                elif kind == "llm_response":
+                    if data and data.tool_calls:
+                        names = ", ".join(tc.name for tc in data.tool_calls)
+                        _stream_ctx["status"].update(f"[cyan]calling {names}...")
+                        _stream_ctx["status"].start()
+                    # 有 content 时不更新 spinner——token 会通过 _on_token 流式输出
+
             try:
-                answer = loop.run(user)
+                with console.status("[cyan]thinking...", spinner="dots") as _status:
+                    _stream_ctx["status"] = _status
+                    _stream_ctx["streaming"] = False
+                    answer = loop.run(user, on_event=_on_event)
             except PermissionDenied as exc:
                 console.print(f"[yellow]已拒绝:[/yellow] {exc}")
                 continue
             except Exception as exc:  # noqa: BLE001
                 console.print(f"[red]error:[/red] {exc}")
                 continue
-            console.print(Panel(answer, title="assistant", style="green"))
+            # 流式已输出过文本就不再重复 Panel；否则（纯工具轮或非流式）用 Panel 包
+            if _stream_ctx["streaming"]:
+                console.print()
+            else:
+                console.print(Panel(answer, title="assistant", style="green"))
             # 每轮后持久化历史（不含 system；system 由 assembler 每次重建）
             db.save_session(session_id, ctx._messages, title=user[:40])
     finally:

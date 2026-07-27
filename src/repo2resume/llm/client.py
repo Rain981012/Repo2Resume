@@ -10,6 +10,8 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
@@ -51,6 +53,21 @@ class CompletionResult:
     cost_usd: float | None = None
 
 
+@dataclass
+class LLMUsage:
+    """一次 LLM 调用的用量/成本/耗时摘要，供 adapter 落 trace。
+
+    complete_with_tools 返回它（方案 2），由 adapter 决定是否调 trace_sink 落库，
+    使 LLMClient 本身不依赖 db，保持可被非 agent 调用方（pipeline/profiler）复用。
+    """
+
+    model: str
+    input_tokens: int
+    output_tokens: int
+    cost_usd: float | None
+    latency_ms: int
+
+
 def _is_retryable(exc: BaseException) -> bool:
     """判断异常是否值得重试：配额耗尽不重试；超时/限流/5xx/连接错误才重试。"""
     if _is_quota_exhausted(exc):
@@ -79,6 +96,15 @@ class LLMClient:
         self._config = config
         self._cache = cache
         litellm.drop_params = True
+        # 关掉 LiteLLM 自带刷屏（completion / success_handler）；需要排查时用 --verbose
+        litellm.set_verbose = False
+        litellm.suppress_debug_info = True
+        litellm.turn_off_message_logging = True
+        for name in ("LiteLLM", "litellm", "LiteLLM Router", "LiteLLM Proxy"):
+            lg = logging.getLogger(name)
+            lg.setLevel(logging.CRITICAL)
+            lg.handlers.clear()
+            lg.propagate = False
 
     def complete(
         self,
@@ -157,23 +183,138 @@ class LLMClient:
         *,
         model: str | None = None,
         temperature: float = 0.2,
-    ) -> tuple[str, list[Any]]:
-        """LLM call with function-calling tools. Returns (content, raw_tool_calls).
+    ) -> tuple[str, list[Any], LLMUsage]:
+        """LLM call with function-calling tools. Returns (content, raw_tool_calls, usage).
 
         raw_tool_calls: litellm tool_call objects (have .id and .function.{name,arguments}).
-        Caller (agent adapter) converts them to its own ToolCall type.
+        usage: LLMUsage(model, input_tokens, output_tokens, cost_usd, latency_ms) —— 方案 2，
+            由 adapter 决定是否调 trace_sink 落库，LLMClient 本身不碰 db。
         """
         resolved = model or self._config.llm_model
+        t0 = time.perf_counter()
         response = self._completion_with_retry(
             model=resolved,
             messages=messages,
             temperature=temperature,
             tools=tools,
         )
+        latency_ms = int((time.perf_counter() - t0) * 1000)
         choice = response.choices[0].message
         content = choice.content or ""
         raw_tool_calls = getattr(choice, "tool_calls", None) or []
-        return content, list(raw_tool_calls)
+        usage = getattr(response, "usage", None)
+        input_tokens = int(getattr(usage, "prompt_tokens", 0) or 0)
+        output_tokens = int(getattr(usage, "completion_tokens", 0) or 0)
+        cost: float | None
+        try:
+            cost = float(litellm.completion_cost(completion_response=response))
+        except Exception:  # noqa: BLE001
+            cost = None
+        return (
+            content,
+            list(raw_tool_calls),
+            LLMUsage(
+                model=resolved,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+                cost_usd=cost,
+                latency_ms=latency_ms,
+            ),
+        )
+
+    def complete_with_tools_stream(
+        self,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]],
+        *,
+        on_token: Callable[[str], None] | None = None,
+        model: str | None = None,
+        temperature: float = 0.2,
+    ) -> tuple[str, list[Any], LLMUsage]:
+        """流式版 complete_with_tools：每个文本 chunk 调 on_token(text)，返回同结构的累积结果。
+
+        为什么单独一个方法而不是给 complete_with_tools 加 stream 参数？
+          - 流式需要 yield/回调，返回值结构虽一样但调用方语义不同（要处理 token 回调）。
+          - 非流式走缓存 + fallback；流式暂不走缓存（流式缓存意义不大，且 fallback 逻辑
+            在流式下要中途切换模型，复杂度高，MVP 先不做）。
+        """
+        from types import SimpleNamespace
+
+        resolved = model or self._config.llm_model
+        t0 = time.perf_counter()
+        response = litellm.completion(
+            model=resolved,
+            messages=messages,
+            temperature=temperature,
+            tools=tools,
+            stream=True,
+            **self._api_kwargs(),
+        )
+        content_parts: list[str] = []
+        tool_acc: dict[int, dict[str, str]] = {}
+        usage_obj: Any = None
+        for chunk in response:
+            choices = getattr(chunk, "choices", None) or []
+            if not choices:
+                if hasattr(chunk, "usage") and chunk.usage:
+                    usage_obj = chunk.usage
+                continue
+            delta = choices[0].delta
+            text = getattr(delta, "content", None)
+            if text:
+                content_parts.append(text)
+                if on_token:
+                    on_token(text)
+            tc_chunks = getattr(delta, "tool_calls", None) or []
+            for tc in tc_chunks:
+                idx = tc.index if tc.index is not None else len(tool_acc)
+                if idx not in tool_acc:
+                    tool_acc[idx] = {"id": "", "name": "", "arguments": ""}
+                if tc.id:
+                    tool_acc[idx]["id"] = tc.id
+                fn = tc.function
+                if fn:
+                    if fn.name:
+                        tool_acc[idx]["name"] += fn.name
+                    if fn.arguments:
+                        tool_acc[idx]["arguments"] += fn.arguments
+            if hasattr(chunk, "usage") and chunk.usage:
+                usage_obj = chunk.usage
+
+        raw_tool_calls = [
+            SimpleNamespace(
+                id=tool_acc[idx]["id"],
+                function=SimpleNamespace(
+                    name=tool_acc[idx]["name"],
+                    arguments=tool_acc[idx]["arguments"] or "{}",
+                ),
+            )
+            for idx in sorted(tool_acc)
+        ]
+        latency_ms = int((time.perf_counter() - t0) * 1000)
+        input_tokens = int(getattr(usage_obj, "prompt_tokens", 0) or 0)
+        output_tokens = int(getattr(usage_obj, "completion_tokens", 0) or 0)
+        cost: float | None
+        try:
+            # 流式没有完整 response 对象，用 token 数估算成本
+            cost = float(litellm.completion_cost(
+                model=resolved,
+                prompt_tokens=input_tokens,
+                completion_tokens=output_tokens,
+            ))
+        except Exception:  # noqa: BLE001
+            cost = None
+        return (
+            "".join(content_parts),
+            raw_tool_calls,
+            LLMUsage(
+                model=resolved,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+                cost_usd=cost,
+                latency_ms=latency_ms,
+            ),
+        )
 
     def embed(
         self,

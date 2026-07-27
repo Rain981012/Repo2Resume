@@ -223,3 +223,53 @@ class FactSheet(BaseModel):
         for e in self.entries:
             lines.append(f"- {e.key}: {e.value!r} {e.evidence.render()}")
         return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Phase 3: retrieval + jobs 数据模型
+# ---------------------------------------------------------------------------
+
+
+class DocumentChunk(BaseModel):
+    """存入向量库与全文索引的一个可检索片段。"""
+
+    doc_id: str
+    text: str
+    repo: str | None = None
+    chunk_type: str = "summary"  # summary / highlight / readme / tech_stack
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class SearchHit(BaseModel):
+    """单次检索（向量或关键词）返回的命中项。"""
+
+    doc_id: str
+    text: str
+    score: float
+    rank: int
+    source: str  # "vector" or "keyword"
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class Job(BaseModel):
+    """职位条目：来自网络搜索或手动输入。"""
+
+    id: str
+    title: str
+    company: str | None = None
+    location: str | None = None
+    jd_text: str = ""
+    skills: list[str] = Field(default_factory=list)
+    source: str = "mock"  # mock / tavily / manual
+    url: str | None = None
+    posted_at: str | None = None
+
+
+class MatchScore(BaseModel):
+    """职位与画像的匹配分数。"""
+
+    job_id: str
+    overall_score: float  # 0-1
+    vector_score: float | None = None
+    llm_score: float | None = None
+    reason: str = ""
