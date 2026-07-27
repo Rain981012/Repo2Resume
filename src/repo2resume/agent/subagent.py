@@ -93,17 +93,11 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-# 下列符号在空 2 `run()` 填空时使用；实现前对未用符号加 noqa，填空后可去掉 noqa。
-from repo2resume.agent.context import ContextManager  # noqa: F401
-from repo2resume.agent.loop import (
-    AgentLoop,  # noqa: F401
-    LLMResponse,
-)
-from repo2resume.agent.prompt_assembler import PromptAssembler  # noqa: F401
-from repo2resume.agent.tools import (
-    Tool,
-    ToolRegistry,  # noqa: F401
-)
+# run() / as_tool() 已实现，这些符号均在使用中。
+from repo2resume.agent.context import ContextManager
+from repo2resume.agent.loop import AgentLoop, LLMResponse
+from repo2resume.agent.prompt_assembler import PromptAssembler
+from repo2resume.agent.tools import Tool, ToolRegistry
 
 # ---------------------------------------------------------------------------
 # 空 0 相关类型（已给出，一般不用改）
@@ -211,7 +205,20 @@ class SubAgentRunner:
         """
         填空: 按上面 1–6 步实现
         """
-        pass
+        reg = ToolRegistry()
+        for tool in self.spec.tools:
+          reg.register(tool)
+        ctx = ContextManager(system=self.spec.system_prompt)
+        asm = PromptAssembler(base=self.spec.system_prompt, registry=reg)
+        loop = AgentLoop(
+          llm=self._llm,
+          registry=reg,
+          assembler=asm,
+          context=ctx,
+          max_rounds=self.spec.max_rounds,
+          max_repeated_tool=self.spec.max_repeated_tool,
+        )
+        return self._summarize_result(loop.run(task))
 
     def _summarize_result(self, raw: str) -> str:
         """空 3：把子 agent 输出收成适合回传主上下文的摘要。
@@ -234,10 +241,11 @@ class SubAgentRunner:
               return text
           return text[:limit] + "\\n…[子 agent 输出已截断]"
         """
-        """
-        填空: 按上面 1–4 步实现
-        """
-        pass
+        text = (raw or "").strip()
+        limit = self.spec.result_max_chars
+        if len(text) <= limit:
+            return text
+        return text[:limit] + "\n…[子 agent 输出已截断]"
 
     def as_tool(self) -> Tool:
         """空 4：把本 Runner 暴露成主 agent 可 register 的 Tool。
@@ -267,7 +275,15 @@ class SubAgentRunner:
         """
         填空: 按上面 1–2 步实现
         """
-        pass
+        def handler(task: str) -> str:
+          return self.run(task)
+        return Tool(
+          name=self.spec.name,
+          description=self.spec.description,
+          params_model=_SubAgentParams,
+          handler=handler,
+          risk="readonly",
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -293,8 +309,11 @@ def make_repo_analyst_spec(analyze_tool: Tool) -> SubAgentSpec:
             "当你需要完整分析/画像而不想自己拼参数时调用。"
         ),
         system_prompt=(
-            "你是 Repo Analyst。只使用提供的工具分析仓库。"
-            "不要编造数字；用中文给出简洁摘要（含关键统计与主方向）。"
+            "你是 Repo Analyst。只使用提供的 analyze_repo 工具分析仓库。\n"
+            "- paths 为空时工具会扫描 ./local_repos/，用户没给路径不必追问。\n"
+            "- 若任务里提到作者身份（如「我是 Rain」），把 ['Rain'] 作为 authors 传入；\n"
+            "  工具会扩展到仓库中匹配的真实 git 身份。\n"
+            "- 不要编造数字；用中文给出简洁摘要（含关键统计、primary/secondary 方向）。"
         ),
         tools=[analyze_tool],
         max_rounds=6,

@@ -135,3 +135,25 @@ def test_as_tool_registers_and_invokes_run() -> None:
     # 主 registry 调子 agent 工具
     result = main_reg.call("repo_analyst", {"task": "分析一下"})
     assert result == "摘要结果"
+
+
+def test_make_repo_analyst_spec_wraps_analyze_only() -> None:
+    """工厂：Spec 只持有传入的 analyze 工具，名称固定为 repo_analyst。"""
+    from pydantic import BaseModel, Field
+
+    from repo2resume.agent.subagent import make_repo_analyst_spec
+
+    class Params(BaseModel):
+        x: str = Field(default="")
+
+    analyze = Tool(
+        name="analyze_repo",
+        description="analyze",
+        params_model=Params,
+        handler=lambda **_: "ok",
+        risk="readonly",
+    )
+    spec = make_repo_analyst_spec(analyze)
+    assert spec.name == "repo_analyst"
+    assert [t.name for t in spec.tools] == ["analyze_repo"]
+    assert "authors" in spec.system_prompt

@@ -29,6 +29,7 @@ from repo2resume.agent.hooks import (
 from repo2resume.agent.llm_adapter import make_llm_adapter
 from repo2resume.agent.loop import AgentLoop
 from repo2resume.agent.prompt_assembler import PromptAssembler
+from repo2resume.agent.subagent import SubAgentRunner, make_repo_analyst_spec
 from repo2resume.agent.tools import ToolRegistry
 from repo2resume.analysis.git_miner import AuthorInfo, MineOptions, collect_authors
 from repo2resume.analysis.pipeline import run_analyze
@@ -535,7 +536,8 @@ def chat(
     db = open_db(cfg.db_path)
 
     reg = ToolRegistry()
-    reg.register(make_analyze_tool(cfg, cache, db))
+    # analyze_repo 只挂在子 agent 内，主 loop 通过 repo_analyst 委派（见下方 llm 创建后）。
+    analyze_tool = make_analyze_tool(cfg, cache, db)
 
     # Phase 3：加载本地 embedder，注册职位搜索与项目素材检索工具。
     try:
@@ -552,7 +554,7 @@ def chat(
     # Phase 2.5 Step 3：权限分级 hook。
     # 事实/策略分离：工具自声明 risk（Tool.risk），
     # 策略由 PermissionHook 按 needs_confirm_risks 决定。
-    # 当前内置工具只有 analyze_repo（readonly），所以确认逻辑暂不会被触发；
+    # 当前主工具含 repo_analyst / search / find（均为 readonly），确认逻辑暂不会被触发；
     # 后续加 write/network 工具时，这里无需改动，工具自己标 risk 即可。
     def _confirm(name: str, args: dict) -> bool:
         preview = ", ".join(f"{k}={v}" for k, v in args.items())
@@ -569,16 +571,15 @@ def chat(
 
     base = (
         "你是 Repo2Resume 的简历助手。可用工具：\n"
-        "1) analyze_repo：分析本地 git 仓库并生成技能画像（含 primary_direction）。"
-        "paths 为空时自动扫描 ./local_repos/，用户没给路径时不必追问。"
-        "如果用户自我介绍（如'我是Rain'），就把 ['Rain'] 作为 authors 参数传入，"
-        "工具会自动扩展到所有仓库中匹配的真实 git 身份。\n"
+        "1) repo_analyst：委派给仓库分析专家。传入 task（自然语言），"
+        "说明要分析什么、作者身份（如「我是 Rain」）、路径（可省略，默认 ./local_repos/）。"
+        "不要自己拼 analyze_repo 参数；让专家处理。\n"
         "2) search_jobs：基于技能画像搜索并匹配多条职位；query 可留空，"
         "自动覆盖 primary + secondary 方向。\n"
         "3) find_project_materials：根据 query 从画像中召回最相关的项目素材。\n"
-        "流程：用户说「开始/分析」时先调 analyze_repo；把 primary 与 secondary 方向告诉用户，"
-        "并问「要帮你按这些方向搜职位吗？」；用户确认后再调 search_jobs（query 留空即可）。"
-        "展示职位时覆盖主方向与次方向，不要只给一条。\n"
+        "流程：用户说「开始/分析」时先调 repo_analyst；把返回摘要中的 primary 与 secondary "
+        "方向告诉用户，并问「要帮你按这些方向搜职位吗？」；用户确认后再调 search_jobs"
+        "（query 留空即可）。展示职位时覆盖主方向与次方向，不要只给一条。\n"
         "不要编造数字；只引用工具返回的统计与检索结果。回答用中文。"
     )
     assembler = PromptAssembler(base=base, registry=reg)
@@ -633,6 +634,12 @@ def chat(
         trace_sink=_llm_trace_sink,
         # on_token=_on_token,  # 暂时禁用 streaming，排查卡死问题
     )
+
+    # Phase 4：Subagent-as-Tool——主 agent 只见 repo_analyst，analyze_repo 在子 loop 内执行。
+    # 与主 loop 共用同一 llm（MVP）；之后可换成更便宜的模型跑专家。
+    analyst = SubAgentRunner(make_repo_analyst_spec(analyze_tool), llm=llm)
+    reg.register(analyst.as_tool())
+
     loop = AgentLoop(
         llm=llm,
         registry=reg,
