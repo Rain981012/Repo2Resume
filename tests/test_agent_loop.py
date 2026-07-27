@@ -89,7 +89,7 @@ def test_on_event_fires_for_tool_calls() -> None:
     loop = _make_loop(llm)
     loop.run("go", on_event=on_event)
 
-    # 应该看到：1 次 llm_response(带 tool_calls) + 1 次 tool_start + 1 次 tool_done + 1 次 llm_response(最终)
+    # 期望事件：llm_response(含 tool_calls)、tool_start、tool_done、最终 llm_response
     kinds = [e[0] for e in events]
     assert "llm_response" in kinds
     assert "tool_start" in kinds

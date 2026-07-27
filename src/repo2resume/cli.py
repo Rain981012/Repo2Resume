@@ -498,7 +498,7 @@ def jobs(
 
         if output:
             payload = {
-                "query": search_query,
+                "query": search_label,
                 "jobs": [s.model_dump() for s in scores],
             }
             output.write_text(json.dumps(payload, ensure_ascii=False, indent=2))

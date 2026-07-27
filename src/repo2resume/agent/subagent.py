@@ -93,10 +93,17 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from repo2resume.agent.context import ContextManager
-from repo2resume.agent.loop import AgentLoop, LLMResponse
-from repo2resume.agent.prompt_assembler import PromptAssembler
-from repo2resume.agent.tools import Tool, ToolRegistry
+# 下列符号在空 2 `run()` 填空时使用；实现前对未用符号加 noqa，填空后可去掉 noqa。
+from repo2resume.agent.context import ContextManager  # noqa: F401
+from repo2resume.agent.loop import (
+    AgentLoop,  # noqa: F401
+    LLMResponse,
+)
+from repo2resume.agent.prompt_assembler import PromptAssembler  # noqa: F401
+from repo2resume.agent.tools import (
+    Tool,
+    ToolRegistry,  # noqa: F401
+)
 
 # ---------------------------------------------------------------------------
 # 空 0 相关类型（已给出，一般不用改）
@@ -130,7 +137,6 @@ class SubAgentSpec:
           max_rounds=6,
       )
     """
-
     name: str
     description: str
     system_prompt: str

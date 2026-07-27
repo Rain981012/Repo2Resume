@@ -6,12 +6,6 @@
 
 from __future__ import annotations
 
-import sys
-import types
-from unittest.mock import patch
-
-import pytest
-
 from repo2resume.retrieval.rerank import CrossEncoderReranker
 from repo2resume.storage.models import SearchHit
 
