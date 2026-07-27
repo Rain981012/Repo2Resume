@@ -15,7 +15,11 @@ DEFAULT_DATA_DIR = Path.home() / ".repo2resume"
 # Zhipu: prefer GLM-5.2; free tier fallback is glm-4.5-flash.
 DEFAULT_LLM_MODEL = "zai/glm-5.2"
 DEFAULT_LLM_FALLBACK_MODEL = "zai/glm-4.5-flash"
-DEFAULT_EMBED_MODEL = "openai/text-embedding-3-small"
+# 默认用 Qwen3-Embedding-0.6B（~1.2GB，原生支持中文 + 代码，32K 上下文），
+# 在「fork 用户冷启动」和「中英 + 代码检索质量」之间取平衡。
+# 追求最高精度可切 local:Qwen3-Embedding-4B（~8GB，需 16GB+ RAM）。
+# 详见 README「Embedding 模型选型」。
+DEFAULT_EMBED_MODEL = "local:Qwen/Qwen3-Embedding-0.6B"
 
 
 class AppConfig(BaseModel):
@@ -31,6 +35,9 @@ class AppConfig(BaseModel):
 
     name: str | None = None
     email: str | None = None
+    # 你的已知 git 身份列表（邮箱或名字，子串匹配）。analyze_repo 无 authors 时默认用它，
+    # 解决「跨仓库多个 git 身份」问题（如学校邮箱 + GitHub noreply + 个人邮箱）。
+    author_identities: list[str] = Field(default_factory=list)
     github: str | None = None
 
     redis_url: str = "redis://localhost:6379/0"
@@ -110,6 +117,7 @@ def load_config(data_dir: Path | None = None) -> AppConfig:
         embed_model=pick("embed_model", "EMBED_MODEL", DEFAULT_EMBED_MODEL),
         name=pick("name", "NAME"),
         email=pick("email", "EMAIL"),
+        author_identities=pick("author_identities", "AUTHOR_IDENTITIES", []),
         github=pick("github", "GITHUB"),
         redis_url=pick("redis_url", "REDIS_URL", "redis://localhost:6379/0"),
         data_dir=resolved_dir,
@@ -141,6 +149,8 @@ def save_config(cfg: AppConfig) -> None:
         payload["name"] = cfg.name
     if cfg.email:
         payload["email"] = cfg.email
+    if cfg.author_identities:
+        payload["author_identities"] = cfg.author_identities
     if cfg.github:
         payload["github"] = cfg.github
     if cfg.tavily_api_key:

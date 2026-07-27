@@ -9,7 +9,7 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 4
 
 MIGRATIONS: dict[int, str] = {
     1: """
@@ -66,6 +66,50 @@ MIGRATIONS: dict[int, str] = {
         latency_ms INTEGER
     );
     CREATE INDEX IF NOT EXISTS idx_tool_traces_session ON tool_traces(session_id);
+    """,
+    3: """
+    -- Phase 3: 检索层元数据与索引
+    CREATE TABLE IF NOT EXISTS retrieval_collections (
+        name TEXT PRIMARY KEY,
+        embed_model TEXT NOT NULL,
+        dimension INTEGER NOT NULL,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    -- 全文检索：doc_id 不索引，只检索 text
+    CREATE VIRTUAL TABLE IF NOT EXISTS fts_documents USING fts5(
+        doc_id UNINDEXED,
+        text
+    );
+
+    -- 职位缓存（Tavily / 手动 / mock）
+    CREATE TABLE IF NOT EXISTS jobs (
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        company TEXT,
+        location TEXT,
+        jd_text TEXT,
+        skills TEXT, -- JSON list
+        source TEXT,
+        url TEXT,
+        posted_at TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_jobs_source ON jobs(source);
+
+    -- 检索评测 golden 数据集
+    CREATE TABLE IF NOT EXISTS eval_golden (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        query TEXT NOT NULL,
+        expected_doc_ids TEXT NOT NULL, -- JSON array
+        notes TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    """,
+    4: """
+    -- Phase 3: jobs 表增加通用 JSON 载荷字段，用于缓存搜索原始结果。
+    ALTER TABLE jobs ADD COLUMN payload_json TEXT;
     """,
 }
 
@@ -224,6 +268,82 @@ class Database:
             "total_ms": total_ms,
             "errors": total_errs,
             "per_tool": per_tool,
+        }
+
+    # ---- llm traces (Phase 2.5 观测：LLM 调用成本) -----------------------
+
+    def record_llm_trace(
+        self,
+        session_id: str,
+        model: str,
+        input_tokens: int,
+        output_tokens: int,
+        cost_usd: float | None,
+        latency_ms: int,
+        payload: object = None,
+    ) -> None:
+        """写一行 LLM 调用 trace 到 llm_traces。payload 可选（存 prompt/响应摘要）。"""
+        import json
+
+        def _dumps(v: object) -> str | None:
+            if v is None:
+                return None
+            try:
+                return json.dumps(v, ensure_ascii=False, default=str)
+            except (TypeError, ValueError):
+                return repr(v)
+
+        self._conn.execute(
+            "INSERT INTO llm_traces"
+            "(session_id, model, input_tokens, output_tokens, cost_usd, latency_ms, payload_json) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (
+                session_id,
+                model,
+                input_tokens,
+                output_tokens,
+                cost_usd,
+                latency_ms,
+                _dumps(payload),
+            ),
+        )
+        self._conn.commit()
+
+    def llm_trace_stats(self, session_id: str) -> dict:
+        """聚合某 session 的 LLM 调用统计，供 /cost 展示成本。
+
+        返回: {count, total_input, total_output, total_cost, total_latency_ms, per_model: {...}}
+        """
+        rows = self._conn.execute(
+            "SELECT model, COUNT(*) AS c, "
+            "COALESCE(SUM(input_tokens), 0) AS ti, COALESCE(SUM(output_tokens), 0) AS to_, "
+            "COALESCE(SUM(cost_usd), 0) AS cost, COALESCE(SUM(latency_ms), 0) AS ms "
+            "FROM llm_traces WHERE session_id = ? GROUP BY model",
+            (session_id,),
+        ).fetchall()
+        per_model: dict[str, dict] = {}
+        total_count = total_in = total_out = total_ms = 0
+        total_cost = 0.0
+        for r in rows:
+            per_model[r["model"]] = {
+                "count": r["c"],
+                "input_tokens": r["ti"],
+                "output_tokens": r["to_"],
+                "cost_usd": r["cost"],
+                "latency_ms": r["ms"],
+            }
+            total_count += r["c"]
+            total_in += r["ti"]
+            total_out += r["to_"]
+            total_cost += r["cost"] or 0
+            total_ms += r["ms"]
+        return {
+            "count": total_count,
+            "total_input": total_in,
+            "total_output": total_out,
+            "total_cost": total_cost,
+            "total_latency_ms": total_ms,
+            "per_model": per_model,
         }
 
 
