@@ -288,7 +288,9 @@ class TavilyJobSource:
                 logger.warning("Tavily search failed: %s", exc)
                 if "401" in msg or "Unauthorized" in msg or "invalid api key" in msg.lower():
                     _AUTH_FAILED_SOURCES.add("tavily")
-                    emit_progress("Tavily 鉴权失败(401)：请检查 REPO2RESUME_TAVILY_API_KEY / init 配置")
+                    emit_progress(
+                        "Tavily 鉴权失败(401)：请检查 REPO2RESUME_TAVILY_API_KEY / init 配置"
+                    )
                     timer.credits = credits_used or 1.0
                     timer.finish(ok=False, note="401")
                 else:
@@ -298,7 +300,8 @@ class TavilyJobSource:
                 return []
 
             emit_progress(
-                f"Tavily 原始 {len(raw_items)} 条 → 详情页 {len(jobs)} 条（credits≈{credits_used:.0f}）"
+                f"Tavily 原始 {len(raw_items)} 条 → 详情页 {len(jobs)} 条"
+                f"（credits≈{credits_used:.0f}）"
             )
             timer.credits = credits_used or 1.0
             timer.finish(ok=True, results=len(jobs[:count]))
@@ -423,7 +426,10 @@ class BochaJobSource:
         rewritten = _rewrite_job_query(query, locale="zh-CN")
         # Bocha 单请求：把详情路径写进 query，提高 job_detail 命中率
         if "job_detail" not in rewritten:
-            rewritten = f"{rewritten} site:zhipin.com/job_detail OR site:liepin.com/job OR site:jobs.51job.com"
+            rewritten = (
+                f"{rewritten} site:zhipin.com/job_detail"
+                " OR site:liepin.com/job OR site:jobs.51job.com"
+            )
         payload = {
             "query": rewritten,
             "summary": True,

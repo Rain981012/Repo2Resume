@@ -69,7 +69,12 @@ def test_search_jobs_persists_individual_job_rows(data_dir):
 
 
 def test_search_jobs_tavily_without_key():
-    jobs = search_jobs("Python backend", count=3, source="tavily", config=AppConfig(tavily_api_key=None))
+    jobs = search_jobs(
+        "Python backend",
+        count=3,
+        source="tavily",
+        config=AppConfig(tavily_api_key=None),
+    )
     assert jobs == []
 
 

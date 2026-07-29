@@ -85,7 +85,13 @@ def test_loop_pads_tool_results_when_cancelled_before_tools() -> None:
 
     reg = ToolRegistry()
     reg.register(
-        Tool(name="slow", description="slow", params_model=SlowParams, handler=slow, risk="readonly")
+        Tool(
+            name="slow",
+            description="slow",
+            params_model=SlowParams,
+            handler=slow,
+            risk="readonly",
+        )
     )
 
     def llm(messages, tools):

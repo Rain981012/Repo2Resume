@@ -358,7 +358,8 @@ class LLMClient:
         额外用 Future.result(timeout=…) 做硬超时：部分 provider（如 zai）可能忽略
         litellm 的 timeout 参数，导致 Writer 卡十几分钟。
         """
-        from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeout
+        from concurrent.futures import ThreadPoolExecutor
+        from concurrent.futures import TimeoutError as FuturesTimeout
 
         attempts = max(1, self._config.llm_max_retries)
         override = kwargs.pop("_timeout_s", None)

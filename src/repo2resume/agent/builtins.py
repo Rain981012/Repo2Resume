@@ -370,7 +370,8 @@ def make_search_jobs_tool(
             lines = [
                 f"找到职位（未加载画像；方向：{directions_label}；来源：{source_note}）：",
                 "展示时必须带上每条「链接」字段给用户。",
-                "用户选定序号后，主助手应 generate_resume(job_id=方括号内 id)，不要让用户去网站粘贴 JD。",
+                "用户选定序号后，主助手应 generate_resume(job_id=方括号内 id)，"
+                "不要让用户去网站粘贴 JD。",
             ]
             for j in jobs[:count]:
                 link = j.url or "（无链接）"
