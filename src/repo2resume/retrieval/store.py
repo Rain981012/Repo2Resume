@@ -287,7 +287,7 @@ class VectorStore:
             )
 
         # 2) 统计级别：README 摘要、依赖、commit 主题（无 stats 则跳过）
-        for repo in (stats.repos if stats is not None else []):
+        for repo in stats.repos if stats is not None else []:
             readme = repo.readme_excerpt
             if readme:
                 chunks.append(

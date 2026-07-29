@@ -320,7 +320,7 @@ def make_repo_analyst_spec(analyze_tool: Tool) -> SubAgentSpec:
             "你是 Repo Analyst。只调用一次 analyze_repo，然后根据工具结果用中文写摘要。\n"
             "- paths 省略即可（默认扫描 ./local_repos/）。\n"
             "- authors 可省略（用用户 config 身份）；若传必须是 JSON 数组，"
-            "如 authors=[\"Rain\"]，绝不要传字符串 '\"[\\\"Rain\\\"]\"'。\n"
+            '如 authors=["Rain"]，绝不要传字符串 \'"[\\"Rain\\"]"\'。\n'
             "- 不要编造数字；摘要含关键统计与 primary_direction。\n"
             "- 工具成功后立刻给出最终文字回复，不要再次调用 analyze_repo。"
         ),

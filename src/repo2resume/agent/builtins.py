@@ -56,7 +56,7 @@ class AnalyzeRepoParams(BaseModel):
     authors: list[str] | None = Field(
         None,
         description=(
-            "按邮箱或名字子串过滤作者，必须是 JSON 数组（如 [\"Rain\"]），不要传字符串。"
+            '按邮箱或名字子串过滤作者，必须是 JSON 数组（如 ["Rain"]），不要传字符串。'
             "可省略：工具会用 config 里的 email / author_identities。"
         ),
     )
@@ -255,9 +255,7 @@ class SearchJobsParams(BaseModel):
     )
     source: str = Field(
         default="auto",
-        description=(
-            "职位来源：auto（Tavily→Bocha→mock）/ tavily / bocha / mock。"
-        ),
+        description=("职位来源：auto（Tavily→Bocha→mock）/ tavily / bocha / mock。"),
     )
 
 
@@ -340,10 +338,7 @@ def make_search_jobs_tool(
 
         workers = min(4, len(queries)) or 1
         with ThreadPoolExecutor(max_workers=workers) as pool:
-            futures = [
-                pool.submit(contextvars.copy_context().run, _search_one, q)
-                for q in queries
-            ]
+            futures = [pool.submit(contextvars.copy_context().run, _search_one, q) for q in queries]
             for fut in as_completed(futures):
                 try:
                     q, batch = fut.result()
@@ -356,9 +351,7 @@ def make_search_jobs_tool(
                         seen_ids.add(j.id)
                         jobs.append(j)
         if not jobs:
-            return (
-                "未找到职位。请检查 Bocha/Tavily key，或直接粘贴 JD 文本给 generate_resume。"
-            )
+            return "未找到职位。请检查 Bocha/Tavily key，或直接粘贴 JD 文本给 generate_resume。"
 
         # 有联网结果时丢掉混进来的 mock（旧缓存 / 多轮合并）
         live = [j for j in jobs if j.source != "mock"]
@@ -571,10 +564,7 @@ def make_generate_resume_tool(
                     "【不要自动重试 generate_resume】请把超时告知用户，"
                     "询问是否换模型/稍后再试，或先打开已有 resume_draft.md。"
                 )
-            return (
-                f"生成失败：{exc}\n"
-                "【不要自动重试超过 1 次】若仍失败，向用户说明原因。"
-            )
+            return f"生成失败：{exc}\n【不要自动重试超过 1 次】若仍失败，向用户说明原因。"
 
         must_left = 0
         if result.reports:
@@ -583,9 +573,13 @@ def make_generate_resume_tool(
         preview = result.markdown[:1200]
         path = result.output_path or Path(output_path)
         # 明确「已完成」：避免 LLM 看到 approved=False / must>0 就整管重跑 generate_resume
-        status = "Critic 已通过" if approved else (
-            f"Critic 仍有 {must_left} 条 must（草稿已落盘，可稍后自然语言改；"
-            "不要再次调用 generate_resume）"
+        status = (
+            "Critic 已通过"
+            if approved
+            else (
+                f"Critic 仍有 {must_left} 条 must（草稿已落盘，可稍后自然语言改；"
+                "不要再次调用 generate_resume）"
+            )
         )
         return (
             f"【已完成】简历草稿已写入，勿再调用本工具。\n"

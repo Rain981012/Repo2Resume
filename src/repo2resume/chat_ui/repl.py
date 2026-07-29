@@ -143,8 +143,7 @@ def run_chat_session(
             except RunCancelled:
                 interrupted = True
                 console.print(
-                    "[yellow]已中断本轮。[/yellow] "
-                    "可继续输入新要求；再按一次 Ctrl-C 将退出进程。"
+                    "[yellow]已中断本轮。[/yellow] 可继续输入新要求；再按一次 Ctrl-C 将退出进程。"
                 )
                 # 仍保存历史，避免中断后 --resume 丢上下文
                 db.save_session(session_id, runtime.context._messages, title=user[:40])

@@ -205,9 +205,7 @@ def test_completion_emits_wait_ticks_under_heartbeat(
     )
     try:
         with progress_heartbeat(0.1):
-            result = LLMClient(cfg).complete(
-                [{"role": "user", "content": "hi"}], use_cache=False
-            )
+            result = LLMClient(cfg).complete([{"role": "user", "content": "hi"}], use_cache=False)
     finally:
         reset_progress_callback(token)
     assert result.content == "ok"

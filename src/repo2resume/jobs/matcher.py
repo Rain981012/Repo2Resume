@@ -155,9 +155,7 @@ def _llm_score_jobs_batch(
         "只输出 JSON 数组，每项字段：job_id (string), score (0~1 float), "
         "reason (一句中文)。不要其它文字。\n\n"
         f"候选人画像:\n{profile_text}\n\n"
-        "职位列表:\n"
-        + "\n".join(job_blocks)
-        + "\n\nJSON:"
+        "职位列表:\n" + "\n".join(job_blocks) + "\n\nJSON:"
     )
     try:
         result = llm.complete(

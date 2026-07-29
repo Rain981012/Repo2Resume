@@ -26,9 +26,7 @@ def register(app: typer.Typer) -> None:
     def analyze(
         paths: Annotated[
             list[str] | None,
-            typer.Argument(
-                help="Local git repo paths. Default: all repos under ./local_repos/."
-            ),
+            typer.Argument(help="Local git repo paths. Default: all repos under ./local_repos/."),
         ] = None,
         author: Annotated[
             list[str] | None,

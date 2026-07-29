@@ -363,9 +363,7 @@ class LLMClient:
 
         attempts = max(1, self._config.llm_max_retries)
         override = kwargs.pop("_timeout_s", None)
-        timeout_s = float(
-            override if override is not None else self._config.llm_timeout_s
-        )
+        timeout_s = float(override if override is not None else self._config.llm_timeout_s)
 
         @retry(
             reraise=True,

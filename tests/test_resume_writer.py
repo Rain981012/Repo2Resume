@@ -72,9 +72,7 @@ def test_select_materials_excludes_very_low_author_share() -> None:
         _hit("g1", "good-repo", 0.5),
         _hit("o1", "other", 0.4),
     ]
-    selected = select_materials(
-        jd_text="Python", hits=hits, profile=profile, max_projects=3
-    )
+    selected = select_materials(jd_text="Python", hits=hits, profile=profile, max_projects=3)
     repos = {_hit_repo_name(h) for h in selected}
     assert "NLP_GAME" not in repos
     assert "good-repo" in repos

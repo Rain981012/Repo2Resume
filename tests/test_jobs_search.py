@@ -67,7 +67,6 @@ def test_search_jobs_persists_individual_job_rows(data_dir):
     persist_jobs(db, [])  # no-op
 
 
-
 def test_search_jobs_tavily_without_key():
     jobs = search_jobs(
         "Python backend",
@@ -133,9 +132,7 @@ def test_bocha_source_handles_http_error():
 def test_is_job_detail_url_accepts_detail_rejects_search():
     from repo2resume.jobs.search import _is_job_detail_url
 
-    assert _is_job_detail_url(
-        "https://www.zhipin.com/job_detail/e4f08e0c703ae85e1Hd609i7GFpV.html"
-    )
+    assert _is_job_detail_url("https://www.zhipin.com/job_detail/e4f08e0c703ae85e1Hd609i7GFpV.html")
     assert _is_job_detail_url("https://www.liepin.com/job/1979220259.shtml")
     assert _is_job_detail_url("https://jobs.51job.com/hangzhou-yhq/172869446.html")
     assert _is_job_detail_url("https://www.zhaopin.com/jobdetail/CCL1520545670J40863206401.htm")

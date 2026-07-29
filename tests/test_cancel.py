@@ -98,9 +98,7 @@ def test_loop_pads_tool_results_when_cancelled_before_tools() -> None:
         tok = get_cancel_token()
         assert tok is not None
         tok.cancel()
-        return LLMResponse(
-            tool_calls=[ToolCall(id="t1", name="slow", arguments={"x": 1})]
-        )
+        return LLMResponse(tool_calls=[ToolCall(id="t1", name="slow", arguments={"x": 1})])
 
     ctx = ContextManager(system="t")
     asm = PromptAssembler(base="t", registry=reg)

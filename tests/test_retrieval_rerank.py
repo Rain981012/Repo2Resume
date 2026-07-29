@@ -41,9 +41,7 @@ def test_llm_reranker_sorts_by_score():
 
 def test_llm_reranker_partial_scores_no_keyerror():
     """LLM 漏掉部分 doc_id 时不得 KeyError，缺分按 0。"""
-    llm = FakeLLM(
-        '{"repo:A:highlight:foo": 0.9}'
-    )  # 故意只给一个 id
+    llm = FakeLLM('{"repo:A:highlight:foo": 0.9}')  # 故意只给一个 id
     reranker = LLMReranker(llm)
     hits = [
         _hit("repo:A:highlight:foo", "litellm glm"),

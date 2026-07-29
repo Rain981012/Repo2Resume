@@ -266,11 +266,7 @@ class AgentLoop:
 
     def _pad_missing_tool_results(self, tool_calls: list[ToolCall]) -> None:
         """中断时补齐尚未回填的 tool 结果，避免下一轮历史协议破裂。"""
-        done = {
-            m.get("tool_call_id")
-            for m in self._context._messages
-            if m.get("role") == "tool"
-        }
+        done = {m.get("tool_call_id") for m in self._context._messages if m.get("role") == "tool"}
         for tc in tool_calls:
             if tc.id not in done:
                 self._context.add_tool_result(tc.id, "[用户中断：未执行]")

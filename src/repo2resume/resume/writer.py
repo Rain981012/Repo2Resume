@@ -49,9 +49,7 @@ _FUSED_BULLET = re.compile(
     re.DOTALL,
 )
 
-_JOB_TITLE_NOISE = re.compile(
-    r"(招聘|职位描述|岗位职责|任职要求|全职|兼职).*$"
-)
+_JOB_TITLE_NOISE = re.compile(r"(招聘|职位描述|岗位职责|任职要求|全职|兼职).*$")
 
 
 def sanitize_job_title(title: str | None) -> str | None:
@@ -138,9 +136,7 @@ def ensure_bullet_evidence(
                     evidence=EvidenceRef(source=source, detail=detail),
                 )
             )
-        projects.append(
-            project.model_copy(update={"bullets": bullets})
-        )
+        projects.append(project.model_copy(update={"bullets": bullets}))
     return draft.model_copy(
         update={
             "projects": projects,
@@ -186,9 +182,7 @@ def select_materials(
         if share is not None and share < RESUME_EXCLUDE_SHARE_BELOW
     }
     soft_low = {
-        repo
-        for repo, share in hints.items()
-        if share is None or share < 0.15
+        repo for repo, share in hints.items() if share is None or share < 0.15
     } - hard_exclude
 
     filtered = [h for h in hits if _hit_repo(h) not in hard_exclude]
@@ -262,11 +256,7 @@ def write_experience(
         note = None
         if repo in hints:
             share = hints[repo]
-            note = (
-                f"low_author_share={share}"
-                if share is not None
-                else "low_author_share=flagged"
-            )
+            note = f"low_author_share={share}" if share is not None else "low_author_share=flagged"
         materials_payload.append(
             {
                 "doc_id": h.doc_id,
@@ -281,9 +271,7 @@ def write_experience(
         "secondary_directions": profile.secondary_directions[:5],
         "tech_stack": profile.tech_stack.model_dump(),
         "project_one_liners": [
-            x.model_dump()
-            for x in profile.project_one_liners[:8]
-            if x.repo not in hard_exclude
+            x.model_dump() for x in profile.project_one_liners[:8] if x.repo not in hard_exclude
         ],
         "highlights_pool": [
             {"repo": h.repo, "claim": h.claim[:200]}
@@ -292,9 +280,7 @@ def write_experience(
         ],
         # 低贡献仓警示：写作时必须收窄表述，不得写成整站主导
         "caution": [c if isinstance(c, str) else str(c) for c in profile.caution[:8]],
-        "authorship_hints": {
-            k: (v if v is not None else "flagged") for k, v in hints.items()
-        },
+        "authorship_hints": {k: (v if v is not None else "flagged") for k, v in hints.items()},
     }
     system = template.render(
         locale=locale,
