@@ -544,9 +544,9 @@ JD/技术栈里大量专有名词（FastAPI、仓库名）。稀疏一路补双�
 ## 5. 下一步
 
 1. （可选）把 `retrieval_golden.json` 改成自己的 `repo:*` doc_id，脚本跑 `evaluate_search_results`，盯 Recall@5。  
-2. （可选）commit Phase 3 复盘与代码。  
-3. **进入 Phase 4**：Writer / Critic、溯源 bullet、`resume`/`export`、子 agent。  
-4. 真联网搜岗 + 超链接 + 大厂两套 Top-N → MVP 后增强（接 Tavily 或同等源）。
+2. Phase 4 主线复盘见 **`05_phase_4_resume_subagent.md`**（Writer-Critic / 子 agent / 贡献归属已跑通）。  
+3. **进入 Phase 5**：evals runner + 提示词调优；把 Phase 4 真跑踩坑做成回归。  
+4. （可选）真联网搜岗体验继续打磨（Tavily/Bocha 已接，稳定性和配额仍是产品题）。
 
 ## 6. 30 秒速记卡
 
@@ -556,4 +556,4 @@ JD/技术栈里大量专有名词（FastAPI、仓库名）。稀疏一路补双�
 - **面试答法：** 见 §4 — 每个技术都按「是什么 → 为什么用 → 为什么不用… → 优缺点 → 为什么不用竞品」。  
 - **流程：** 见 §1.5。  
 - **踩坑：** 卡死其实是 LLM 失败重试；embed 配置漂移；只搜 primary；eager torch；无进度假死。  
-- **下一站：** Phase 4 简历生成；golden 真跑评测可选。
+- **下一站：** Phase 4 见 `05_phase_4_resume_subagent.md`；再进 Phase 5 评测。

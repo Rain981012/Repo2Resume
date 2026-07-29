@@ -39,6 +39,22 @@ def test_llm_reranker_sorts_by_score():
     assert result[0].rank == 1
 
 
+def test_llm_reranker_partial_scores_no_keyerror():
+    """LLM 漏掉部分 doc_id 时不得 KeyError，缺分按 0。"""
+    llm = FakeLLM(
+        '{"repo:A:highlight:foo": 0.9}'
+    )  # 故意只给一个 id
+    reranker = LLMReranker(llm)
+    hits = [
+        _hit("repo:A:highlight:foo", "litellm glm"),
+        _hit("repo:B:summary", "django inbox"),
+        _hit("repo:C:readme", "fastapi"),
+    ]
+    result = reranker.rerank("backend", hits, top_k=3)
+    assert result[0].doc_id == "repo:A:highlight:foo"
+    assert len(result) == 3
+
+
 def test_llm_reranker_falls_back_on_invalid_json():
     llm = FakeLLM("not json at all")
     reranker = LLMReranker(llm)

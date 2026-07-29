@@ -205,18 +205,24 @@ class SubAgentRunner:
         """
         填空: 按上面 1–6 步实现
         """
+        from repo2resume.agent.hooks import ErrorRecoveryHook
+        from repo2resume.agent.progress import emit_progress
+
+        emit_progress(f"子代理 {self.spec.name} 开始：{task[:60]}")
         reg = ToolRegistry()
         for tool in self.spec.tools:
-          reg.register(tool)
+            reg.register(tool)
+        # 子 registry 也要吞校验/工具异常，否则一次参数错会炸穿整个 repo_analyst。
+        reg.add_hook(ErrorRecoveryHook())
         ctx = ContextManager(system=self.spec.system_prompt)
         asm = PromptAssembler(base=self.spec.system_prompt, registry=reg)
         loop = AgentLoop(
-          llm=self._llm,
-          registry=reg,
-          assembler=asm,
-          context=ctx,
-          max_rounds=self.spec.max_rounds,
-          max_repeated_tool=self.spec.max_repeated_tool,
+            llm=self._llm,
+            registry=reg,
+            assembler=asm,
+            context=ctx,
+            max_rounds=self.spec.max_rounds,
+            max_repeated_tool=self.spec.max_repeated_tool,
         )
         return self._summarize_result(loop.run(task))
 
@@ -275,14 +281,16 @@ class SubAgentRunner:
         """
         填空: 按上面 1–2 步实现
         """
+
         def handler(task: str) -> str:
-          return self.run(task)
+            return self.run(task)
+
         return Tool(
-          name=self.spec.name,
-          description=self.spec.description,
-          params_model=_SubAgentParams,
-          handler=handler,
-          risk="readonly",
+            name=self.spec.name,
+            description=self.spec.description,
+            params_model=_SubAgentParams,
+            handler=handler,
+            risk="readonly",
         )
 
 
@@ -309,12 +317,59 @@ def make_repo_analyst_spec(analyze_tool: Tool) -> SubAgentSpec:
             "当你需要完整分析/画像而不想自己拼参数时调用。"
         ),
         system_prompt=(
-            "你是 Repo Analyst。只使用提供的 analyze_repo 工具分析仓库。\n"
-            "- paths 为空时工具会扫描 ./local_repos/，用户没给路径不必追问。\n"
-            "- 若任务里提到作者身份（如「我是 Rain」），把 ['Rain'] 作为 authors 传入；\n"
-            "  工具会扩展到仓库中匹配的真实 git 身份。\n"
-            "- 不要编造数字；用中文给出简洁摘要（含关键统计、primary/secondary 方向）。"
+            "你是 Repo Analyst。只调用一次 analyze_repo，然后根据工具结果用中文写摘要。\n"
+            "- paths 省略即可（默认扫描 ./local_repos/）。\n"
+            "- authors 可省略（用用户 config 身份）；若传必须是 JSON 数组，"
+            "如 authors=[\"Rain\"]，绝不要传字符串 '\"[\\\"Rain\\\"]\"'。\n"
+            "- 不要编造数字；摘要含关键统计与 primary_direction。\n"
+            "- 工具成功后立刻给出最终文字回复，不要再次调用 analyze_repo。"
         ),
         tools=[analyze_tool],
+        max_rounds=6,
+        max_repeated_tool=2,
+    )
+
+
+def make_job_scout_spec(
+    search_jobs_tool: Tool,
+    find_materials_tool: Tool | None = None,
+) -> SubAgentSpec:
+    """职位搜索专家：持有 search_jobs（+ 可选 find_project_materials）。
+
+    主 chat 只 register(runner.as_tool())，不要再直接挂 search_jobs，避免绕过专家。
+    """
+    tools: list[Tool] = [search_jobs_tool]
+    if find_materials_tool is not None:
+        tools.append(find_materials_tool)
+
+    materials_hint = ""
+    if find_materials_tool is not None:
+        materials_hint = (
+            "- 若任务要求「为某 JD 找可写素材」，可调 find_project_materials；\n"
+            "  query 用 JD 关键职责/技术词。\n"
+        )
+
+    return SubAgentSpec(
+        name="job_scout",
+        description=(
+            "委派给职位搜索专家：按技能方向搜岗、匹配打分，并可按 JD 召回项目素材。"
+            "当你需要推荐职位或不想自己拼 search_jobs 参数时调用。"
+        ),
+        system_prompt=(
+            "你是 Job Scout。只使用提供的工具完成搜岗 / 素材召回。\n"
+            "- 默认面向中国大陆中文岗位；不要主动改成英文 Indeed/Glassdoor 列表页搜索。\n"
+            "- 用户确认搜职位且未给关键词时：search_jobs 的 query 留空，"
+            "工具会按画像 primary + secondary 多路搜索。\n"
+            "- 用户指定方向（如「只要 Python 后端」）时再把 query 设成该中文方向。\n"
+            "- 展示契约（必须遵守）：用中文汇总职位名、公司/平台、匹配分、理由，"
+            "**每一条都必须带上工具返回的「链接」原文**（Markdown 可点击），"
+            "并保留方括号内的 job_id（如 bocha-xxxx），方便用户选岗后 generate_resume。\n"
+            "- 若工具标明 source=mock 或公司名像 StartupXYZ/CloudScale，要明确告诉用户"
+            "这是示例岗，不是真招聘。\n"
+            "- 不要让用户去网站粘贴 JD；告诉用户回复序号即可生成简历。\n"
+            f"{materials_hint}"
+            "- 不要编造职位、分数或 URL；只引用工具返回内容。"
+        ),
+        tools=tools,
         max_rounds=6,
     )

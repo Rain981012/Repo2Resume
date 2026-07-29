@@ -10,7 +10,8 @@
    - `source` 例：`summary.overall_language_share` 或 `repo-a / dependencies`
    - `detail` 例：`path: app/api/webhook.py` 或 `git show <hash> --stat`
    - 禁止编造行号；打不开源码时不要硬凑亮点。
-3. `author_share < 0.15` 的仓库写入 `caution`；禁止把团队成果写成个人主导。
+3. `author_share < 0.15` 的仓库写入 `caution`，格式尽量为
+   `"repo-name: author_share=0.12 < 0.15，勿写成个人主导"`；禁止把团队成果写成个人主导。
 4. `coding_language` 的 share **必须**引用 `summary.overall_language_share`，禁止口算。
 5. 本步禁止联网：`job_direction_suggestions` 只给概括性职位类型（title + reason）。
 6. `highlights_pool` 必须具体：禁止仅复述 commit 标题 + 行数；宁少勿空。

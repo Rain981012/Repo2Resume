@@ -79,6 +79,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
+from repo2resume.agent.cancel import RunCancelled, check_cancelled
 from repo2resume.agent.context import ContextManager
 from repo2resume.agent.prompt_assembler import PromptAssembler
 from repo2resume.agent.tools import ToolRegistry
@@ -145,9 +146,22 @@ class AgentLoop:
                   self._context.add_tool_result(tc.id, str(result))
         """
         for tc in tool_calls:
+            check_cancelled()
             if self._on_event:
                 self._on_event("tool_start", tc.name)
-            result = self._registry.call(tc.name, tc.arguments)
+            try:
+                result = self._registry.call(tc.name, tc.arguments)
+            except RunCancelled:
+                self._context.add_tool_result(tc.id, "[用户中断：工具未完成]")
+                # 同批尚未执行的工具也要回填，避免历史里悬空 tool_calls
+                started = False
+                for other in tool_calls:
+                    if other.id == tc.id:
+                        started = True
+                        continue
+                    if started:
+                        self._context.add_tool_result(other.id, "[用户中断：未执行]")
+                raise
             if self._on_event:
                 self._on_event("tool_done", tc.name)
             self._context.add_tool_result(tc.id, str(result))
@@ -199,9 +213,11 @@ class AgentLoop:
 
         # 空3
         for _ in range(self._max_rounds):
+            check_cancelled()
             messages = self._context.messages()
             tools = self._registry.list_schemas()
             resp = self._llm(messages, tools)
+            check_cancelled()
             if on_event:
                 on_event("llm_response", resp)
             if resp.tool_calls:
@@ -217,7 +233,11 @@ class AgentLoop:
                     for tc in resp.tool_calls
                 ]
                 self._context.add("assistant", "", tool_calls=tc_dicts)
-                self._execute_tools(resp.tool_calls)
+                try:
+                    self._execute_tools(resp.tool_calls)
+                except RunCancelled:
+                    self._pad_missing_tool_results(resp.tool_calls)
+                    raise
 
                 # 空 5（Phase 2.5 卡死检测）：连续同名工具调用超阈值则停
                 # 步骤:
@@ -243,3 +263,14 @@ class AgentLoop:
 
         # 空4
         return f"[达到最大轮数 {self._max_rounds}，停止]"
+
+    def _pad_missing_tool_results(self, tool_calls: list[ToolCall]) -> None:
+        """中断时补齐尚未回填的 tool 结果，避免下一轮历史协议破裂。"""
+        done = {
+            m.get("tool_call_id")
+            for m in self._context._messages
+            if m.get("role") == "tool"
+        }
+        for tc in tool_calls:
+            if tc.id not in done:
+                self._context.add_tool_result(tc.id, "[用户中断：未执行]")

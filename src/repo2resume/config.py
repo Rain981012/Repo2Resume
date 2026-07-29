@@ -43,6 +43,8 @@ class AppConfig(BaseModel):
     redis_url: str = "redis://localhost:6379/0"
     data_dir: Path = Field(default_factory=lambda: DEFAULT_DATA_DIR)
     tavily_api_key: str | None = None
+    # 博查 Web Search（可选兜底）；source=auto 默认先 Tavily，再 Bocha
+    bocha_api_key: str | None = None
 
     llm_timeout_s: float = 60.0
     llm_max_retries: int = 3
@@ -122,6 +124,7 @@ def load_config(data_dir: Path | None = None) -> AppConfig:
         redis_url=pick("redis_url", "REDIS_URL", "redis://localhost:6379/0"),
         data_dir=resolved_dir,
         tavily_api_key=pick("tavily_api_key", "TAVILY_API_KEY"),
+        bocha_api_key=pick("bocha_api_key", "BOCHA_API_KEY"),
         llm_timeout_s=float(timeout),
         llm_max_retries=int(retries),
     )
@@ -155,6 +158,8 @@ def save_config(cfg: AppConfig) -> None:
         payload["github"] = cfg.github
     if cfg.tavily_api_key:
         payload["tavily_api_key"] = cfg.tavily_api_key
+    if cfg.bocha_api_key:
+        payload["bocha_api_key"] = cfg.bocha_api_key
 
     with cfg.config_path.open("wb") as f:
         tomli_w.dump(payload, f)

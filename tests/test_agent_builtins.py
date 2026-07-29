@@ -84,3 +84,16 @@ def test_analyze_tool_no_repos_found(monkeypatch) -> None:
     tool = make_analyze_tool(config=None, cache=None, db=None)
     out = tool.call({})
     assert "未找到仓库" in out
+
+
+def test_analyze_tool_coerces_authors_json_string(fake_bundle) -> None:
+    """LLM 常把 authors 传成 '["Rain"]' 字符串；应校验通过并跑通。"""
+    tool = make_analyze_tool(config=None, cache=None, db=None)
+    out = tool.call({"paths": ["/tmp/demo"], "authors": '["Rain"]'})
+    assert "repo_count: 1" in out
+
+
+def test_analyze_tool_coerces_paths_json_string(fake_bundle) -> None:
+    tool = make_analyze_tool(config=None, cache=None, db=None)
+    out = tool.call({"paths": '["/tmp/demo"]', "authors": ["ada@example.com"]})
+    assert "repo_count: 1" in out
