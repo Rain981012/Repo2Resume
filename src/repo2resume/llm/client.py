@@ -69,14 +69,23 @@ class LLMUsage:
 
 
 def _is_retryable(exc: BaseException) -> bool:
-    """判断异常是否值得重试：配额耗尽不重试；超时/限流/5xx/连接错误才重试。"""
+    """判断异常是否值得重试：配额耗尽不重试；超时/限流/5xx/连接错误才重试。
+
+    注意：我们自己的硬 TimeoutError **不重试**——重试只会把「慢但能成」的
+    Writer 调用砍成 60s×3 次失败，体感更慢且更易全盘失败。
+    """
+    if isinstance(exc, TimeoutError):
+        return False
     if _is_quota_exhausted(exc):
         return False
     status = getattr(exc, "status_code", None)
     if status in {408, 429, 500, 502, 503, 504}:
         return True
     name = type(exc).__name__.lower()
-    tokens = ("timeout", "ratelimit", "serviceunavailable", "apiconnection")
+    # 排除内置 TimeoutError（上面已处理）；仍重试 httpx/openai 类超时名
+    if name == "timeouterror":
+        return False
+    tokens = ("ratelimit", "serviceunavailable", "apiconnection")
     return any(token in name for token in tokens)
 
 
@@ -113,8 +122,12 @@ class LLMClient:
         model: str | None = None,
         temperature: float = 0.2,
         use_cache: bool = True,
+        timeout_s: float | None = None,
     ) -> CompletionResult:
-        """普通补全：先查缓存 → 调 LiteLLM（带重试）→ 主模型配额耗尽则切 fallback → 写缓存。"""
+        """普通补全：先查缓存 → 调 LiteLLM（带重试）→ 主模型配额耗尽则切 fallback → 写缓存。
+
+        timeout_s: 覆盖 config.llm_timeout_s；Writer/Critic 应传更长（如 180）。
+        """
         resolved = model or self._config.llm_model
         cache_key = self._cache_key("llm", resolved, messages, temperature)
         if use_cache and self._cache is not None:
@@ -128,6 +141,7 @@ class LLMClient:
                 model=resolved,
                 messages=messages,
                 temperature=temperature,
+                _timeout_s=timeout_s,
             )
             used_model = resolved
         except Exception as exc:
@@ -148,6 +162,7 @@ class LLMClient:
                     model=fallback,
                     messages=messages,
                     temperature=temperature,
+                    _timeout_s=timeout_s,
                 )
                 used_model = fallback
             else:
@@ -338,8 +353,17 @@ class LLMClient:
         return kwargs
 
     def _completion_with_retry(self, **kwargs: Any) -> Any:
-        """用 tenacity 包一层 `litellm.completion`：指数退避 + 仅对可重试异常重试。"""
+        """用 tenacity 包一层 `litellm.completion`：指数退避 + 仅对可重试异常重试。
+
+        额外用 Future.result(timeout=…) 做硬超时：部分 provider（如 zai）可能忽略
+        litellm 的 timeout 参数，导致 Writer 卡十几分钟。
+        """
+        from concurrent.futures import ThreadPoolExecutor
+        from concurrent.futures import TimeoutError as FuturesTimeout
+
         attempts = max(1, self._config.llm_max_retries)
+        override = kwargs.pop("_timeout_s", None)
+        timeout_s = float(override if override is not None else self._config.llm_timeout_s)
 
         @retry(
             reraise=True,
@@ -348,7 +372,49 @@ class LLMClient:
             retry=retry_if_exception(_is_retryable),
         )
         def _call() -> Any:
-            return litellm.completion(**kwargs, **self._api_kwargs())
+            call_kwargs = {**kwargs, **self._api_kwargs()}
+            # 与硬超时对齐，避免 litellm 内部超时更短/更长不一致
+            call_kwargs["timeout"] = timeout_s
+
+            def _invoke() -> Any:
+                return litellm.completion(**call_kwargs)
+
+            pool = ThreadPoolExecutor(max_workers=1)
+            try:
+                fut = pool.submit(_invoke)
+                from repo2resume.agent.cancel import RunCancelled
+                from repo2resume.agent.progress import emit_wait_tick, heartbeat_wait_slice
+
+                slice_s = heartbeat_wait_slice()
+                if slice_s <= 0:
+                    try:
+                        return fut.result(timeout=timeout_s)
+                    except FuturesTimeout as exc:
+                        raise TimeoutError(
+                            f"LLM 调用超过 {timeout_s:.0f}s（model={call_kwargs.get('model')}）"
+                        ) from exc
+
+                # chat 心跳开启：主线程每 slice_s 醒一次并打印（后台线程写 stdout 不可靠）
+                deadline = time.monotonic() + timeout_s
+                while True:
+                    remaining = deadline - time.monotonic()
+                    if remaining <= 0:
+                        raise TimeoutError(
+                            f"LLM 调用超过 {timeout_s:.0f}s（model={call_kwargs.get('model')}）"
+                        )
+                    try:
+                        return fut.result(timeout=min(slice_s, remaining))
+                    except FuturesTimeout:
+                        if time.monotonic() >= deadline:
+                            raise TimeoutError(
+                                f"LLM 调用超过 {timeout_s:.0f}s（model={call_kwargs.get('model')}）"
+                            ) from None
+                        try:
+                            emit_wait_tick()
+                        except RunCancelled:
+                            raise
+            finally:
+                pool.shutdown(wait=False, cancel_futures=True)
 
         return _call()
 

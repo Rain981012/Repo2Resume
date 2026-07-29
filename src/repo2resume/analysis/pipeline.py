@@ -121,6 +121,12 @@ def run_analyze(
         if cache is not None and use_cache:
             set_cached_profile(cache, profile_cache_key(stats), profile)
 
+    if profile is not None:
+        # 用挖矿数字强制补全低贡献 caution（不依赖 LLM 是否写对格式）
+        _ensure_authorship_caution(profile, stats)
+        if cache is not None and use_cache:
+            set_cached_profile(cache, profile_cache_key(stats), profile)
+
     if db is not None and profile is not None:
         db.conn.execute(
             """
@@ -132,3 +138,16 @@ def run_analyze(
         db.conn.commit()
 
     return stats, profile
+
+
+def _ensure_authorship_caution(profile: SkillProfile, stats: RepoStatsBundle) -> None:
+    """把 author_share < 0.15 的仓写成可解析的 caution 行，供简历选材/写作使用。"""
+    for repo in stats.repos:
+        if repo.author_share >= 0.15:
+            continue
+        if any(repo.name in c and "author_share=" in c for c in profile.caution):
+            continue
+        profile.caution.append(
+            f"{repo.name}: author_share={repo.author_share:.3f} < 0.15，"
+            f"commits={repo.author_commits}/{repo.total_commits}，勿写成个人主导"
+        )

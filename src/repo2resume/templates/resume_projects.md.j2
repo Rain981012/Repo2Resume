@@ -1,0 +1,8 @@
+### {{ project.project_name }}
+
+{{ project.one_liner }}
+
+{% for b in project.bullets %}
+- **{{ b.label }}**：{{ b.body }}{% if not strip_src %} <!-- src: {{ b.evidence.source }}{% if b.evidence.detail %}, {{ b.evidence.detail }}{% endif %} -->{% endif %}
+
+{% endfor %}

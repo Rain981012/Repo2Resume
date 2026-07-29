@@ -6,7 +6,99 @@
 
 from __future__ import annotations
 
-from repo2resume.storage.models import EvidenceRef, FactEntry, FactSheet, RepoStatsBundle
+import re
+
+from repo2resume.storage.models import (
+    EvidenceRef,
+    FactEntry,
+    FactSheet,
+    RepoStatsBundle,
+    SkillProfile,
+)
+
+# 简历默认不选 author_share 低于此阈值的仓（仍可通过 caution 提示；避免 1 commit 仓整页贪功）
+RESUME_EXCLUDE_SHARE_BELOW = 0.12
+
+
+def authorship_hints_from_profile(profile: SkillProfile) -> dict[str, float | None]:
+    """从 caution / one_liners 推断仓库贡献份额。
+
+    返回 repo → share（能解析出数字）或 None（仅标记为低贡献、无精确份额）。
+    """
+    hints: dict[str, float | None] = {}
+    known_repos = {p.repo for p in profile.project_one_liners} | {
+        h.repo for h in profile.highlights_pool
+    }
+
+    share_re = re.compile(
+        r"(?P<repo>[A-Za-z0-9_.\-]+).{0,40}?"
+        r"(?:author_share|贡献占比|份额|share)\s*[=:<>≈]?\s*(?P<share>0?\.\d+|\d+\.\d+)",
+        re.IGNORECASE,
+    )
+    low_re = re.compile(
+        r"(?P<repo>[A-Za-z0-9_.\-]+).{0,60}?(?:low_author_share|低贡献|贡献占比低)",
+        re.IGNORECASE,
+    )
+
+    for caution in profile.caution:
+        text = caution if isinstance(caution, str) else str(caution)
+        matched = False
+        for m in share_re.finditer(text):
+            repo = m.group("repo")
+            share = float(m.group("share"))
+            if share > 1.0:
+                share = share / 100.0
+            hints[repo] = share
+            matched = True
+        if matched:
+            continue
+        for m in low_re.finditer(text):
+            repo = m.group("repo")
+            hints.setdefault(repo, None)
+            matched = True
+        if matched:
+            continue
+        # 「NLP_GAME: …」或 caution 直接含已知仓名
+        for repo in known_repos:
+            if repo and repo in text:
+                if any(
+                    k in text.lower()
+                    for k in ("author_share", "low_author", "低贡献", "贡献占比", "0.")
+                ):
+                    hints.setdefault(repo, None)
+
+    return hints
+
+
+def fact_sheet_from_profile(profile: SkillProfile) -> FactSheet:
+    """无完整 stats 时，用画像 caution 合成写作/审稿用的精简事实清单。"""
+    entries: list[FactEntry] = []
+    for repo, share in authorship_hints_from_profile(profile).items():
+        if share is not None:
+            entries.append(
+                FactEntry(
+                    key=f"{repo}.author_share",
+                    value=share,
+                    evidence=EvidenceRef(source=f"profile.caution:{repo}.author_share"),
+                )
+            )
+            if share < 0.15:
+                entries.append(
+                    FactEntry(
+                        key=f"{repo}.low_author_share",
+                        value=share,
+                        evidence=EvidenceRef(source=f"profile.caution:{repo}.low_author_share"),
+                    )
+                )
+        else:
+            entries.append(
+                FactEntry(
+                    key=f"{repo}.low_author_share",
+                    value="flagged",
+                    evidence=EvidenceRef(source=f"profile.caution:{repo}"),
+                )
+            )
+    return FactSheet(entries=entries)
 
 
 def build_fact_sheet(stats: RepoStatsBundle) -> FactSheet:

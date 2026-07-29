@@ -107,14 +107,19 @@ class LLMReranker:
         scores = _parse_scores(result.content, [h.doc_id for h in candidates])
         if not scores:
             return unique_hits[:top_k]
-        sorted_candidates = sorted(candidates, key=lambda h: scores[h.doc_id], reverse=True)
+        # LLM 常漏掉部分 doc_id；缺分视为 0，避免 KeyError 整段失败重试
+        sorted_candidates = sorted(
+            candidates,
+            key=lambda h: scores.get(h.doc_id, 0.0),
+            reverse=True,
+        )
         result_hits = []
         for i, h in enumerate(sorted_candidates[:top_k], start=1):
             result_hits.append(
                 SearchHit(
                     doc_id=h.doc_id,
                     text=h.text,
-                    score=scores[h.doc_id],
+                    score=scores.get(h.doc_id, 0.0),
                     rank=i,
                     source="rerank",
                     metadata=h.metadata,

@@ -135,3 +135,96 @@ def test_as_tool_registers_and_invokes_run() -> None:
     # 主 registry 调子 agent 工具
     result = main_reg.call("repo_analyst", {"task": "分析一下"})
     assert result == "摘要结果"
+
+
+def test_make_repo_analyst_spec_wraps_analyze_only() -> None:
+    """工厂：Spec 只持有传入的 analyze 工具，名称固定为 repo_analyst。"""
+    from pydantic import BaseModel, Field
+
+    from repo2resume.agent.subagent import make_repo_analyst_spec
+
+    class Params(BaseModel):
+        x: str = Field(default="")
+
+    analyze = Tool(
+        name="analyze_repo",
+        description="analyze",
+        params_model=Params,
+        handler=lambda **_: "ok",
+        risk="readonly",
+    )
+    spec = make_repo_analyst_spec(analyze)
+    assert spec.name == "repo_analyst"
+    assert [t.name for t in spec.tools] == ["analyze_repo"]
+    assert "authors" in spec.system_prompt
+
+
+def test_make_job_scout_spec_wraps_search_and_find() -> None:
+    """工厂：job_scout 持有 search_jobs + find_project_materials。"""
+    from pydantic import BaseModel, Field
+
+    from repo2resume.agent.subagent import make_job_scout_spec
+
+    class Params(BaseModel):
+        q: str = Field(default="")
+
+    search = Tool(
+        name="search_jobs",
+        description="search",
+        params_model=Params,
+        handler=lambda **_: "jobs",
+        risk="readonly",
+    )
+    find = Tool(
+        name="find_project_materials",
+        description="find",
+        params_model=Params,
+        handler=lambda **_: "hits",
+        risk="readonly",
+    )
+    spec = make_job_scout_spec(search, find)
+    assert spec.name == "job_scout"
+    assert [t.name for t in spec.tools] == ["search_jobs", "find_project_materials"]
+    assert "search_jobs" in spec.system_prompt
+
+    solo = make_job_scout_spec(search)
+    assert [t.name for t in solo.tools] == ["search_jobs"]
+
+
+def test_run_recovers_from_inner_tool_validation_error() -> None:
+    """子 registry 挂 ErrorRecovery：参数校验失败不炸穿，回填文本后子 agent 可继续。"""
+    from pydantic import BaseModel, Field
+
+    class StrictParams(BaseModel):
+        items: list[str] = Field(description="must be list")
+
+    tool = Tool(
+        name="strict",
+        description="strict list",
+        params_model=StrictParams,
+        handler=lambda items: f"ok:{items}",
+        risk="readonly",
+    )
+    spec = SubAgentSpec(
+        name="bot",
+        description="d",
+        system_prompt="s",
+        tools=[tool],
+        max_rounds=5,
+    )
+    calls = {"n": 0}
+
+    def llm(messages, tools):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            # 故意传错类型，触发 ValidationError
+            return LLMResponse(
+                tool_calls=[ToolCall(id="c1", name="strict", arguments={"items": 123})]
+            )
+        content = messages[-1].get("content") or ""
+        assert "失败" in content or "ValidationError" in content
+        return LLMResponse(content="已从错误恢复")
+
+    out = SubAgentRunner(spec, llm=llm).run("go")
+    assert out == "已从错误恢复"
+    assert calls["n"] == 2

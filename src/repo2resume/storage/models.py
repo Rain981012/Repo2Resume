@@ -7,7 +7,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -273,3 +273,61 @@ class MatchScore(BaseModel):
     vector_score: float | None = None
     llm_score: float | None = None
     reason: str = ""
+
+
+# ---------------------------------------------------------------------------
+# Resume drafts (Phase 4 Writer / Critic)
+# ---------------------------------------------------------------------------
+
+
+class BulletDraft(BaseModel):
+    """一条可溯源的项目经历 bullet（结构化；渲染时再拼 Markdown）。"""
+
+    label: str
+    body: str
+    evidence: EvidenceRef
+
+    @field_validator("evidence", mode="before")
+    @classmethod
+    def _evidence(cls, value: Any) -> Any:
+        return _coerce_evidence(value)
+
+
+class ProjectExperienceDraft(BaseModel):
+    """单个项目的经历草稿：名 + 一句话产品定位 + bullets。"""
+
+    project_name: str
+    one_liner: str
+    bullets: list[BulletDraft] = Field(default_factory=list)
+    rank: int = 0
+
+
+class ResumeDraft(BaseModel):
+    """MVP：仅项目经历块（非完整简历）。供 Writer 产出、Critic 审阅。"""
+
+    locale: str = "zh-CN"
+    job_id: str | None = None
+    job_title: str | None = None
+    projects: list[ProjectExperienceDraft] = Field(default_factory=list)
+    materials_used: list[str] = Field(default_factory=list)
+
+
+class CritiqueItem(BaseModel):
+    """单条审稿意见：只指出问题与改法方向，不重写全文。"""
+
+    severity: Literal["must", "should"]
+    category: Literal["fact", "ats", "style", "structure"]
+    target: str
+    message: str
+
+
+class CritiqueReport(BaseModel):
+    """一次 Critic 审阅结果。approved = must_fix 为空。"""
+
+    must_fix: list[CritiqueItem] = Field(default_factory=list)
+    should_fix: list[CritiqueItem] = Field(default_factory=list)
+    passed: list[str] = Field(default_factory=list)
+
+    @property
+    def approved(self) -> bool:
+        return not self.must_fix

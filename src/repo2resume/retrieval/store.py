@@ -243,8 +243,15 @@ class VectorStore:
     # High-level helpers
     # ------------------------------------------------------------------
 
-    def upsert_profile_materials(self, profile: SkillProfile, stats: RepoStatsBundle) -> int:
-        """把技能画像与统计里的项目素材拆成 DocumentChunk 并索引。"""
+    def upsert_profile_materials(
+        self,
+        profile: SkillProfile,
+        stats: RepoStatsBundle | None,
+    ) -> int:
+        """把技能画像与统计里的项目素材拆成 DocumentChunk 并索引。
+
+        stats 可为 None（简历流水线 / find_project_materials 仅有画像时）。
+        """
         chunks: list[DocumentChunk] = []
 
         # 1) 画像级别：主方向 + 技术栈 + 领域标签
@@ -279,8 +286,8 @@ class VectorStore:
                 )
             )
 
-        # 2) 统计级别：README 摘要、依赖、commit 主题
-        for repo in stats.repos:
+        # 2) 统计级别：README 摘要、依赖、commit 主题（无 stats 则跳过）
+        for repo in stats.repos if stats is not None else []:
             readme = repo.readme_excerpt
             if readme:
                 chunks.append(

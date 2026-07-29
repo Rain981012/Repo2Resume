@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from repo2resume.analysis.fact_sheet import build_fact_sheet
 from repo2resume.storage.models import (
     LanguageStat,
@@ -59,3 +61,29 @@ def test_build_fact_sheet_covers_languages_and_repos() -> None:
     assert "api.author_share" in keys
     assert "api.dependencies" in keys
     assert "tiny.low_author_share" in keys
+
+
+def test_authorship_hints_and_fact_sheet_from_profile() -> None:
+    from repo2resume.analysis.fact_sheet import (
+        authorship_hints_from_profile,
+        fact_sheet_from_profile,
+    )
+    from repo2resume.storage.models import ProjectOneLiner, SkillProfile
+
+    profile = SkillProfile(
+        primary_direction="Python",
+        project_one_liners=[
+            ProjectOneLiner(repo="NLP_GAME", summary="game"),
+            ProjectOneLiner(repo="socialdistribution", summary="social"),
+        ],
+        caution=[
+            "NLP_GAME: author_share=0.111 < 0.15，勿写成个人主导",
+            "socialdistribution: author_share=0.137 < 0.15，commits=54/393，勿写成个人主导",
+        ],
+    )
+    hints = authorship_hints_from_profile(profile)
+    assert hints["NLP_GAME"] == pytest.approx(0.111)
+    assert hints["socialdistribution"] == pytest.approx(0.137)
+    keys = {e.key for e in fact_sheet_from_profile(profile).entries}
+    assert "NLP_GAME.low_author_share" in keys
+    assert "socialdistribution.author_share" in keys

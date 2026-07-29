@@ -1,0 +1,21 @@
+# {{ name | default('（姓名）', true) }}
+
+{% if contact_line %}{{ contact_line }}
+
+{% endif -%}
+{% if target_title %}> 求职意向：{{ target_title }}
+
+{% endif -%}
+{% if primary_direction %}
+## 技能
+
+- **主力方向**：{{ primary_direction }}
+{% if languages %}- **语言**：{{ languages }}
+{% endif %}
+{% if tech_stack %}- **技术栈**：{{ tech_stack }}
+{% endif %}
+
+{% endif -%}
+## 项目经历
+
+{{ projects_md }}

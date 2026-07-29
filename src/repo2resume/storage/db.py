@@ -346,6 +346,35 @@ class Database:
             "per_model": per_model,
         }
 
+    # ---- resume drafts (Phase 4) -----------------------------------------
+
+    def save_resume_draft(self, draft: object, *, job_id: str | None = None) -> int:
+        """插入一条 ResumeDraft JSON，返回 row id。"""
+        import json
+
+        if hasattr(draft, "model_dump_json"):
+            payload = draft.model_dump_json()
+            job_id = job_id or getattr(draft, "job_id", None)
+        else:
+            payload = json.dumps(draft, ensure_ascii=False)
+        cur = self._conn.execute(
+            "INSERT INTO resume_drafts(job_id, payload_json) VALUES (?, ?)",
+            (job_id, payload),
+        )
+        self._conn.commit()
+        return int(cur.lastrowid)
+
+    def load_latest_resume_draft(self) -> tuple[int, object] | None:
+        """返回 (id, ResumeDraft)；无草稿则 None。"""
+        from repo2resume.storage.models import ResumeDraft
+
+        row = self._conn.execute(
+            "SELECT id, payload_json FROM resume_drafts ORDER BY id DESC LIMIT 1"
+        ).fetchone()
+        if row is None:
+            return None
+        return int(row["id"]), ResumeDraft.model_validate_json(row["payload_json"])
+
 
 def open_db(path: Path) -> Database:
     """工厂：打开/创建指定路径的 SQLite 数据库并自动跑迁移。"""

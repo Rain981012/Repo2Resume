@@ -34,8 +34,10 @@ class FakeEmbedder:
 class FakeLLM:
     def __init__(self, reply: str) -> None:
         self.reply = reply
+        self.calls = 0
 
-    def complete(self, messages, *, model=None, temperature=0.0):
+    def complete(self, messages, *, model=None, temperature=0.0, **kwargs):
+        self.calls += 1
         return CompletionResult(
             content=self.reply,
             model="fake",
@@ -80,7 +82,8 @@ def test_job_matcher_computes_scores():
 
 def test_match_all_sorts_and_limits():
     embedder = FakeEmbedder()
-    llm = FakeLLM('{"score": 0.5, "reason": "一般"}')
+    # 批量路径期望 JSON 数组；空数组 → 纯向量排序仍返回 top_k
+    llm = FakeLLM("[]")
     matcher = JobMatcher(embedder, llm)
     profile = SkillProfile(primary_direction="Backend Engineer")
     jobs = [
@@ -91,3 +94,26 @@ def test_match_all_sorts_and_limits():
     scores = matcher.match_all(profile, jobs, top_k=2)
     assert len(scores) == 2
     assert scores[0].overall_score >= scores[1].overall_score
+    assert llm.calls == 1  # 一次批量，不再 3 次串行
+
+
+def test_match_all_batch_llm_once():
+    embedder = FakeEmbedder()
+    llm = FakeLLM(
+        '[{"job_id":"j1","score":0.9,"reason":"很匹配"},'
+        '{"job_id":"j2","score":0.2,"reason":"不太匹配"}]'
+    )
+    matcher = JobMatcher(embedder, llm)
+    profile = SkillProfile(primary_direction="Backend Engineer")
+    jobs = [
+        Job(id="j1", title="Backend", jd_text="Python", skills=["Python"]),
+        Job(id="j2", title="Frontend", jd_text="React", skills=["React"]),
+        Job(id="j3", title="Other", jd_text="Go", skills=["Go"]),
+    ]
+    scores = matcher.match_all(profile, jobs, top_k=3, llm_top_n=2)
+    assert llm.calls == 1
+    by_id = {s.job_id: s for s in scores}
+    assert by_id["j1"].llm_score == pytest.approx(0.9)
+    assert "匹配" in by_id["j1"].reason
+    # j3 不在 LLM top-2 → 无 llm_score
+    assert by_id["j3"].llm_score is None

@@ -1,0 +1,43 @@
+# 按 Critic 意见修订项目经历
+
+你是简历写作者。根据「必须修改」修订草稿；不要无视 must。
+默认不必处理建议项，除非用户消息明确要求。
+仍只输出项目经历 JSON（ResumeDraft 形状）；不写完整简历；不发明数字。
+修订时继续遵守：只保留本人 commit/素材能支撑的模块级贡献；低贡献仓不得写成整站主导。
+
+## 目标 JD
+
+{{ jd_text }}
+
+## 原草稿
+
+```json
+{{ draft_json }}
+```
+
+## 必须修改
+
+```json
+{{ must_fix_json }}
+```
+
+## 可选建议（{{ include_should }}）
+
+```json
+{{ should_fix_json }}
+```
+
+## 召回素材
+
+```json
+{{ materials_json }}
+```
+
+## 事实清单
+
+{{ fact_sheet_block }}
+
+## 输出
+
+只输出合法 ResumeDraft JSON（locale / projects / materials_used 等）。
+locale={{ locale }}。
