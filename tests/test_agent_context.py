@@ -60,3 +60,66 @@ def test_maybe_compact_trims_when_over_budget() -> None:
     assert "裁剪" in msgs[1]["content"]
     # 最后一条仍是最新消息
     assert msgs[-1]["content"] == "m9"
+
+
+def test_compact_never_leaves_orphan_tool_message() -> None:
+    """按条裁可能切掉 assistant(tool_calls)，留下配对不上的 tool 消息。"""
+    ctx = ContextManager(system="s", max_tokens=10, count_tokens=_fake_counter)
+    ctx.add("user", "hi")
+    ctx.add(
+        "assistant",
+        "",
+        tool_calls=[
+            {
+                "id": "call_1",
+                "type": "function",
+                "function": {"name": "search", "arguments": "{}"},
+            }
+        ],
+    )
+    ctx.add_tool_result("call_1", "result")
+    ctx.add("assistant", "done")
+
+    ctx.maybe_compact(keep_last=2)
+
+    msgs = ctx.messages()
+    ids = {
+        tc["id"]
+        for m in msgs
+        if m.get("tool_calls")
+        for tc in m["tool_calls"]
+    }
+    for m in msgs:
+        if m["role"] == "tool":
+            assert m["tool_call_id"] in ids
+
+
+def test_compact_keeps_consecutive_tool_results() -> None:
+    ctx = ContextManager(system="s", max_tokens=10, count_tokens=_fake_counter)
+    ctx.add("user", "hi")
+    ctx.add(
+        "assistant",
+        "",
+        tool_calls=[
+            {"id": "a", "type": "function", "function": {"name": "x", "arguments": "{}"}},
+            {"id": "b", "type": "function", "function": {"name": "y", "arguments": "{}"}},
+            {"id": "c", "type": "function", "function": {"name": "z", "arguments": "{}"}},
+        ],
+    )
+    ctx.add_tool_result("a", "ra")
+    ctx.add_tool_result("b", "rb")
+    ctx.add_tool_result("c", "rc")
+    ctx.add("assistant", "done")
+
+    ctx.maybe_compact(keep_last=2)
+
+    msgs = ctx.messages()
+    ids = {
+        tc["id"]
+        for m in msgs
+        if m.get("tool_calls")
+        for tc in m["tool_calls"]
+    }
+    tool_ids = [m["tool_call_id"] for m in msgs if m["role"] == "tool"]
+    assert tool_ids == ["a", "b", "c"]
+    assert ids == {"a", "b", "c"}

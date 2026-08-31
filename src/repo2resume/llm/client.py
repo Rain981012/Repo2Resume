@@ -66,6 +66,9 @@ class LLMUsage:
     output_tokens: int
     cost_usd: float | None
     latency_ms: int
+    cache_hit: bool = False
+    tool_names: list[str] | None = None
+    role: str | None = None
 
 
 def _is_retryable(exc: BaseException) -> bool:
@@ -98,6 +101,34 @@ def _is_quota_exhausted(exc: BaseException) -> bool:
     return any(token in text for token in _QUOTA_TOKENS)
 
 
+def _is_provider_routing_error(exc: BaseException) -> bool:
+    """litellm 认不出 zai/ 或模型名时的路由错误，可切 fallback。"""
+    text = str(exc).lower()
+    tokens = (
+        "llm provider not provided",
+        "provider not provided",
+        "not a valid model",
+        "invalid model name",
+        "unable to map your input to a model",
+        "check your input",
+    )
+    return any(token in text for token in tokens)
+
+
+def _should_fallback(exc: BaseException) -> bool:
+    return _is_quota_exhausted(exc) or _is_provider_routing_error(exc)
+
+
+def _tool_names_from_raw(raw_tool_calls: list[Any]) -> list[str]:
+    names: list[str] = []
+    for tc in raw_tool_calls:
+        fn = getattr(tc, "function", None)
+        name = getattr(fn, "name", None) or ""
+        if name:
+            names.append(str(name))
+    return names
+
+
 class LLMClient:
     """LiteLLM 封装：补全/工具调用/嵌入，带重试、缓存、fallback。"""
 
@@ -123,18 +154,74 @@ class LLMClient:
         temperature: float = 0.2,
         use_cache: bool = True,
         timeout_s: float | None = None,
+        role: str | None = None,
     ) -> CompletionResult:
         """普通补全：先查缓存 → 调 LiteLLM（带重试）→ 主模型配额耗尽则切 fallback → 写缓存。
 
         timeout_s: 覆盖 config.llm_timeout_s；Writer/Critic 应传更长（如 180）。
+        role: 观测标签（writer/critic/score/revise），进入 span 名。
         """
+        from repo2resume.observability.langsmith_span import span_call
+
+        hit = {"v": False}
+
+        def _run() -> CompletionResult:
+            result, cache_hit = self._complete_once(
+                messages,
+                model=model,
+                temperature=temperature,
+                use_cache=use_cache,
+                timeout_s=timeout_s,
+            )
+            hit["v"] = cache_hit
+            return result
+
+        from repo2resume.observability.repro import append_verbose_prompt
+
+        append_verbose_prompt(
+            messages,
+            span=f"llm.complete.{role}" if role else "llm.complete",
+            model=model or self._config.llm_model,
+        )
+
+        span_name = f"llm.complete.{role}" if role else "llm.complete"
+        return span_call(
+            span_name,
+            _run,
+            run_type="llm",
+            inputs={
+                "model": model or self._config.llm_model,
+                "n_messages": len(messages),
+                "role": role or "default",
+            },
+            metadata={"role": role or "default", "cache_hit": False},
+            outputs_of=lambda r: {
+                "model": r.model,
+                "input_tokens": r.input_tokens,
+                "output_tokens": r.output_tokens,
+                "cache_hit": hit["v"],
+                "role": role or "default",
+                "preview": r.content,
+            },
+        )
+
+    def _complete_once(
+        self,
+        messages: list[dict[str, Any]],
+        *,
+        model: str | None,
+        temperature: float,
+        use_cache: bool,
+        timeout_s: float | None,
+    ) -> tuple[CompletionResult, bool]:
         resolved = model or self._config.llm_model
         cache_key = self._cache_key("llm", resolved, messages, temperature)
         if use_cache and self._cache is not None:
             cached = self._cache.get(cache_key)
             if cached is not None:
                 data = json.loads(cached)
-                return CompletionResult(**data)
+                data.pop("cache_hit", None)
+                return CompletionResult(**data), True
 
         try:
             response = self._completion_with_retry(
@@ -150,12 +237,12 @@ class LLMClient:
                 fallback
                 and fallback != resolved
                 and model is None  # only auto-fallback for default path
-                and _is_quota_exhausted(exc)
+                and _should_fallback(exc)
             ):
                 logger.warning(
-                    "Primary model %s quota/balance exhausted (%s); falling back to %s",
+                    "Primary model %s failed (%s); falling back to %s",
                     resolved,
-                    exc,
+                    type(exc).__name__,
                     fallback,
                 )
                 response = self._completion_with_retry(
@@ -189,7 +276,7 @@ class LLMClient:
             # Cache under the model that actually answered.
             key = self._cache_key("llm", used_model, messages, temperature)
             self._cache.set(key, json.dumps(result.__dict__), ttl=LLM_CACHE_TTL)
-        return result
+        return result, False
 
     def complete_with_tools(
         self,
@@ -205,6 +292,45 @@ class LLMClient:
         usage: LLMUsage(model, input_tokens, output_tokens, cost_usd, latency_ms) —— 方案 2，
             由 adapter 决定是否调 trace_sink 落库，LLMClient 本身不碰 db。
         """
+        from repo2resume.observability.langsmith_span import span_call
+
+        def _run() -> tuple[str, list[Any], LLMUsage]:
+            content, raw, usage = self._complete_with_tools_once(
+                messages,
+                tools,
+                model=model,
+                temperature=temperature,
+            )
+            usage.tool_names = _tool_names_from_raw(raw)
+            return content, raw, usage
+
+        return span_call(
+            "llm.complete_with_tools",
+            _run,
+            run_type="llm",
+            inputs={
+                "model": model or self._config.llm_model,
+                "n_messages": len(messages),
+                "n_tools": len(tools),
+            },
+            outputs_of=lambda triple: {
+                "model": triple[2].model,
+                "input_tokens": triple[2].input_tokens,
+                "output_tokens": triple[2].output_tokens,
+                "cache_hit": False,
+                "tool_names": triple[2].tool_names or [],
+                "preview": triple[0],
+            },
+        )
+
+    def _complete_with_tools_once(
+        self,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]],
+        *,
+        model: str | None,
+        temperature: float,
+    ) -> tuple[str, list[Any], LLMUsage]:
         resolved = model or self._config.llm_model
         t0 = time.perf_counter()
         response = self._completion_with_retry(
@@ -253,6 +379,47 @@ class LLMClient:
           - 非流式走缓存 + fallback；流式暂不走缓存（流式缓存意义不大，且 fallback 逻辑
             在流式下要中途切换模型，复杂度高，MVP 先不做）。
         """
+        from repo2resume.observability.langsmith_span import span_call
+
+        def _run() -> tuple[str, list[Any], LLMUsage]:
+            content, raw, usage = self._complete_with_tools_stream_once(
+                messages,
+                tools,
+                on_token=on_token,
+                model=model,
+                temperature=temperature,
+            )
+            usage.tool_names = _tool_names_from_raw(raw)
+            return content, raw, usage
+
+        return span_call(
+            "llm.complete_with_tools_stream",
+            _run,
+            run_type="llm",
+            inputs={
+                "model": model or self._config.llm_model,
+                "n_messages": len(messages),
+                "n_tools": len(tools),
+            },
+            outputs_of=lambda triple: {
+                "model": triple[2].model,
+                "input_tokens": triple[2].input_tokens,
+                "output_tokens": triple[2].output_tokens,
+                "cache_hit": False,
+                "tool_names": triple[2].tool_names or [],
+                "preview": triple[0],
+            },
+        )
+
+    def _complete_with_tools_stream_once(
+        self,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]],
+        *,
+        on_token: Callable[[str], None] | None,
+        model: str | None,
+        temperature: float,
+    ) -> tuple[str, list[Any], LLMUsage]:
         from types import SimpleNamespace
 
         resolved = model or self._config.llm_model
@@ -263,7 +430,7 @@ class LLMClient:
             temperature=temperature,
             tools=tools,
             stream=True,
-            **self._api_kwargs(),
+            **self._api_kwargs(model=resolved),
         )
         content_parts: list[str] = []
         tool_acc: dict[int, dict[str, str]] = {}
@@ -345,11 +512,22 @@ class LLMClient:
         data = sorted(response.data, key=lambda item: item["index"])
         return [list(item["embedding"]) for item in data]
 
-    def _api_kwargs(self) -> dict[str, Any]:
-        """组装传给 LiteLLM 的公共参数：超时 + 可选 api_key。"""
+    def _api_kwargs(self, *, model: str | None = None) -> dict[str, Any]:
+        """组装传给 LiteLLM 的公共参数：超时 + 可选 api_key / api_base / provider。"""
         kwargs: dict[str, Any] = {"timeout": self._config.llm_timeout_s}
         if self._config.llm_api_key:
             kwargs["api_key"] = self._config.llm_api_key
+        api_base = getattr(self._config, "llm_api_base", None)
+        if api_base:
+            kwargs["api_base"] = api_base
+        resolved = model or self._config.llm_model
+        # `zai/glm-5.2` 已带 provider 前缀；再传 custom_llm_provider 会无法映射。
+        if (
+            isinstance(resolved, str)
+            and "/" not in resolved
+            and resolved.lower().startswith("glm")
+        ):
+            kwargs["custom_llm_provider"] = "zai"
         return kwargs
 
     def _completion_with_retry(self, **kwargs: Any) -> Any:
@@ -372,7 +550,7 @@ class LLMClient:
             retry=retry_if_exception(_is_retryable),
         )
         def _call() -> Any:
-            call_kwargs = {**kwargs, **self._api_kwargs()}
+            call_kwargs = {**kwargs, **self._api_kwargs(model=kwargs.get("model"))}
             # 与硬超时对齐，避免 litellm 内部超时更短/更长不一致
             call_kwargs["timeout"] = timeout_s
 

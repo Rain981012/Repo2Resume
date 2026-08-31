@@ -138,10 +138,11 @@ def compute_recall_at_k(
       return found / len(expected_doc_ids)
     """
     if not expected_doc_ids:
-        return 0.0
+      return 0.0
     top_k = {h.doc_id for h in hits[:k]}
     found = len(expected_doc_ids & top_k)
     return found / len(expected_doc_ids)
+
 
 
 def compute_mrr(
@@ -169,8 +170,8 @@ def compute_mrr(
       return 0.0
     """
     for rank, hit in enumerate(hits, start=1):
-        if hit.doc_id in expected_doc_ids:
-            return 1.0 / rank
+      if hit.doc_id in expected_doc_ids:
+        return 1.0/rank
     return 0.0
 
 
@@ -226,14 +227,10 @@ def evaluate_search_results(
         mrrs.append(compute_mrr(hits, expected))
         for k in k_values:
             recalls[k].append(compute_recall_at_k(hits, expected, k=k))
-    recall_avg = {}
-    for k, v in recalls.items():
-        recall_avg[k] = sum(v) / len(v) if v else 0.0
-    mrr_avg = sum(mrrs) / len(mrrs) if mrrs else 0.0
     return {
         "count": len(queries),
-        "recall": recall_avg,
+        "recall": {k: (sum(v) / len(v) if v else 0.0) for k, v in recalls.items()},
         "recall_per_query": recalls,
-        "mrr": mrr_avg,
+        "mrr": sum(mrrs) / len(mrrs) if mrrs else 0.0,
         "mrr_per_query": mrrs,
     }

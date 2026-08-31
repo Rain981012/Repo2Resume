@@ -268,14 +268,58 @@ class ToolRegistry:
           - 工具抛异常 + after 返回 "recovered: ..." → call 返回该字符串，不抛
           - 工具抛异常 + after 返回 None → 异常仍抛出
         """
+        from repo2resume.agent.hooks import PermissionDenied
+        from repo2resume.observability.bucket import infer_bucket
+        from repo2resume.observability.langsmith_span import finish_span, langsmith_span
+
+        with langsmith_span(
+            f"tool.{name}",
+            run_type="tool",
+            inputs={"name": name, "arguments": arguments},
+            metadata={"hitl": "pending"},
+        ) as span:
+            try:
+                result = self._call_impl(name, arguments)
+            except PermissionDenied as exc:
+                finish_span(
+                    span,
+                    error=exc,
+                    outputs={
+                        "hitl": "denied",
+                        "bucket": infer_bucket(hitl="denied", error=exc),
+                    },
+                )
+                raise
+            except BaseException as exc:
+                finish_span(
+                    span,
+                    error=exc,
+                    outputs={"bucket": infer_bucket(error=exc)},
+                )
+                raise
+            finish_span(
+                span,
+                outputs={"preview": "" if result is None else str(result)},
+            )
+            return result
+
+    def _call_impl(self, name: str, arguments: dict[str, Any]) -> Any:
+        from repo2resume.agent.hooks import PermissionDenied
+
         args = arguments
-        for h in self._hooks:
-            new = h.before(name, args)
-            if new is not None:
-                args = new
         try:
+            for h in self._hooks:
+                new = h.before(name, args)
+                if new is not None:
+                    args = new
             result = self.get(name).call(args)
             error = None
+        except PermissionDenied as e:
+            for h in self._hooks:
+                rec = getattr(h, "record_denied", None)
+                if callable(rec):
+                    rec(name, args, e)
+            raise
         except Exception as e:
             result = None
             error = e

@@ -16,8 +16,12 @@ def register(app: typer.Typer) -> None:
     def chat(
         resume: Annotated[
             str | None,
-            typer.Option("--resume", "-r", help="恢复指定 session id 的历史对话。"),
+            typer.Option("--resume", "-r", help="恢复指定 session id（默认已自动续上一段）。"),
         ] = None,
+        new: Annotated[
+            bool,
+            typer.Option("--new", "-n", help="强制开新会话，不续上一段。"),
+        ] = False,
     ) -> None:
         """Interactive agent session. Analyze repos via natural language."""
-        run_chat_session(resume=resume, console=console, cfg=load_config())
+        run_chat_session(resume=resume, new=new, console=console, cfg=load_config())

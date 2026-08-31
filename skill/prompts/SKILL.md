@@ -38,7 +38,7 @@ python3 scripts/git_stats.py <repo1> <repo2> ... --author <email> --output runs/
 
 ## Step 3:职位搜索与打分 ⏸
 
-按 [02_job_search.md](02_job_search.md):确认城市/远程/级别/`top_n`(默认5,最多10) → 生成搜索词(含大厂专项) → 网络搜索真实在招职位(**≥50**) → 两套 Top-N → 询问是否继续搜更多。用户也可直接粘贴 JD 参与打分。
+按 [02_job_search.md](02_job_search.md):确认城市/远程/级别/`top_n`(默认5,最多10) → 生成搜索词(含大厂专项) → 网络搜索真实在招职位(**≥50**) → 一套综合 Top-N → 询问是否继续搜更多。用户也可直接粘贴 JD 参与打分。
 
 **⏸ 用户选定目标职位**后继续。
 

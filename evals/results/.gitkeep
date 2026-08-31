@@ -1,0 +1,3 @@
+# Phase 5 eval results (gitignored run files optional)
+
+Keep `baseline.json` after a good run for `repo2resume evals run --baseline`.

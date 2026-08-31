@@ -79,7 +79,22 @@ class Profiler:
 
         last_error: str | None = None
         for attempt in range(self._max_retries + 1):
-            result = self._llm.complete(messages, temperature=0.2, use_cache=attempt == 0)
+            try:
+                from repo2resume.agent.progress import emit_progress
+
+                emit_progress(f"Profiler LLM 第 {attempt + 1}/{self._max_retries + 1} 次…")
+            except ImportError:  # pragma: no cover
+                pass
+            try:
+                # 画像 JSON 较长，给足时间；超时不重试（见下方 except）
+                result = self._llm.complete(
+                    messages,
+                    temperature=0.2,
+                    use_cache=attempt == 0,
+                    timeout_s=120.0,
+                )
+            except TimeoutError:
+                raise
             try:
                 payload = _extract_json(result.content)
                 profile = SkillProfile.model_validate_json(payload)

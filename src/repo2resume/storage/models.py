@@ -251,6 +251,101 @@ class SearchHit(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
+class SalaryInfo(BaseModel):
+    """结构化薪资信息；unknown 时 min/max 为空且置信度为 0。"""
+
+    min: float | None = None
+    max: float | None = None
+    currency: str = "CNY"
+    period: str = "month"
+    raw: str | None = None
+    confidence: float = 0.0
+
+    @property
+    def known(self) -> bool:
+        return self.min is not None and self.max is not None and self.confidence > 0
+
+
+class EligibilityFlags(BaseModel):
+    """硬约束判定的三值标记。"""
+
+    campus: Literal["true", "false", "unknown"] = "unknown"
+    employment_type: Literal["fulltime", "parttime", "intern", "unknown"] = "unknown"
+    city_match: Literal["true", "false", "unknown"] = "unknown"
+    notes: list[str] = Field(default_factory=list)
+
+
+class JobDiscovery(BaseModel):
+    """候选职位的发现层信息（来自搜索结果）。"""
+
+    title: str
+    snippet: str = ""
+    discovered_at: str
+    search_query: str = ""
+
+
+class JobVerification(BaseModel):
+    """候选职位的验证层状态。"""
+
+    status: Literal["unverified", "live", "offline", "blocked", "unknown"] = "unverified"
+    method: str = "search_snippet"
+    checked_at: str | None = None
+
+
+class JobContent(BaseModel):
+    """候选职位内容层（可不完整）。"""
+
+    jd_text: str = ""
+    completeness: float = Field(default=0.0, ge=0.0, le=1.0)
+    salary: SalaryInfo = Field(default_factory=SalaryInfo)
+
+
+class SearchRun(BaseModel):
+    """一次搜岗运行元数据，可解释推荐来源。"""
+
+    run_id: str
+    prefs_version: int = 1
+    queries: list[str] = Field(default_factory=list)
+    sources: list[str] = Field(default_factory=list)
+    started_at: str
+    completed_at: str | None = None
+
+
+class JobCandidate(BaseModel):
+    """搜索阶段产物：候选职位，不等同于已验证有效职位。"""
+
+    candidate_id: str
+    run_id: str
+    source: str = "tavily"
+    url: str | None = None
+    confidence: Literal["high", "medium", "low"] = "low"
+    discovery: JobDiscovery
+    verification: JobVerification = Field(default_factory=JobVerification)
+    content: JobContent = Field(default_factory=JobContent)
+    eligibility: EligibilityFlags = Field(default_factory=EligibilityFlags)
+    posted_at: str | None = None
+    posted_at_source: str | None = None
+    last_seen_at: str | None = None
+    last_verified_at: str | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class JobSnapshot(BaseModel):
+    """用户选岗后的详情快照，供简历生成优先使用。"""
+
+    snapshot_id: str
+    job_id: str
+    candidate_id: str | None = None
+    fetched_at: str
+    source: str = "detail_fetch"
+    url: str | None = None
+    content: str
+    content_hash: str
+    completeness: float = Field(default=0.0, ge=0.0, le=1.0)
+    verification_status: Literal["live", "unverified", "unknown"] = "unknown"
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
 class Job(BaseModel):
     """职位条目：来自网络搜索或手动输入。"""
 
@@ -263,16 +358,82 @@ class Job(BaseModel):
     source: str = "mock"  # mock / tavily / manual
     url: str | None = None
     posted_at: str | None = None
+    discovered_at: str | None = None
+    last_seen_at: str | None = None
+    last_verified_at: str | None = None
+    verification_status: str | None = None
+    content_completeness: float | None = None
+    # 详情页上的「今日更新 / 90天前更新」，用于时效降权；抓不到就留 None
+    days_since_update: int | None = None
+    updated_text: str | None = None
 
 
 class MatchScore(BaseModel):
     """职位与画像的匹配分数。"""
 
     job_id: str
-    overall_score: float  # 0-1
+    overall_score: float  # 0-1 综合分（技能+城市+薪资+校招社招+摘要，再混入官网加分）
     vector_score: float | None = None
     llm_score: float | None = None
+    site_score: float | None = None  # 招聘站点 0~1（官网 1.0，综合招聘站 0.5）
+    site_label: str | None = None
     reason: str = ""
+    analysis_match: str = ""
+    analysis_preference: str = ""
+    analysis_salary: str = ""
+    analysis_gaps: str = ""
+    salary_known: bool = False
+    eligibility_passed: bool = True
+
+
+def candidate_to_job_projection(candidate: JobCandidate) -> Job:
+    """兼容投影：把 JobCandidate 映射成旧 Job 结构。"""
+    return Job(
+        id=candidate.candidate_id,
+        title=candidate.discovery.title,
+        company=(candidate.metadata.get("company") if isinstance(candidate.metadata, dict) else None),
+        location=(candidate.metadata.get("location") if isinstance(candidate.metadata, dict) else None),
+        jd_text=candidate.content.jd_text,
+        skills=list(candidate.metadata.get("skills") or [])
+        if isinstance(candidate.metadata, dict)
+        else [],
+        source=candidate.source,
+        url=candidate.url,
+        posted_at=candidate.posted_at,
+        discovered_at=candidate.discovery.discovered_at,
+        last_seen_at=candidate.last_seen_at,
+        last_verified_at=candidate.last_verified_at,
+        verification_status=candidate.verification.status,
+        content_completeness=candidate.content.completeness,
+    )
+
+
+class JobSearchPrefs(BaseModel):
+    """搜岗前用户确认的结构化偏好（落库；search_jobs 硬依赖）。"""
+
+    confirmed_directions: list[str] = Field(default_factory=list)
+    is_campus: bool | None = None
+    salary_range: str | None = None
+    city: str | None = None
+    remote: bool | None = None
+    top_n: int = Field(default=5, ge=1, le=10)
+    include_big_tech: bool = False
+    big_tech_list: list[str] | None = None
+
+    def missing_for_search(self) -> list[str]:
+        """返回仍缺、导致不能开搜的字段名。"""
+        missing: list[str] = []
+        if not [d.strip() for d in self.confirmed_directions if d and str(d).strip()]:
+            missing.append("confirmed_directions")
+        if self.city is None and self.remote is None:
+            missing.append("city_or_remote")
+        return missing
+
+
+class SearchPrefs(JobSearchPrefs):
+    """新搜岗偏好别名（兼容旧 JobSearchPrefs）。"""
+
+    version: int = 1
 
 
 # ---------------------------------------------------------------------------
@@ -327,6 +488,7 @@ class CritiqueReport(BaseModel):
     must_fix: list[CritiqueItem] = Field(default_factory=list)
     should_fix: list[CritiqueItem] = Field(default_factory=list)
     passed: list[str] = Field(default_factory=list)
+    critic_complete: bool = True
 
     @property
     def approved(self) -> bool:

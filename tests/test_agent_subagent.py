@@ -157,6 +157,12 @@ def test_make_repo_analyst_spec_wraps_analyze_only() -> None:
     assert spec.name == "repo_analyst"
     assert [t.name for t in spec.tools] == ["analyze_repo"]
     assert "authors" in spec.system_prompt
+    assert spec.return_after_tools is False
+    assert spec.max_repeated_tool == 3
+
+    passthrough = make_repo_analyst_spec(analyze, return_after_tools=True)
+    assert passthrough.return_after_tools is True
+    assert passthrough.max_repeated_tool == 2
 
 
 def test_make_job_scout_spec_wraps_search_and_find() -> None:
@@ -189,6 +195,12 @@ def test_make_job_scout_spec_wraps_search_and_find() -> None:
 
     solo = make_job_scout_spec(search)
     assert [t.name for t in solo.tools] == ["search_jobs"]
+    assert solo.return_after_tools is True
+    assert solo.max_repeated_tool == 2
+
+    multi = make_job_scout_spec(search, return_after_tools=False)
+    assert multi.return_after_tools is False
+    assert multi.max_repeated_tool == 3
 
 
 def test_run_recovers_from_inner_tool_validation_error() -> None:
@@ -228,3 +240,154 @@ def test_run_recovers_from_inner_tool_validation_error() -> None:
     out = SubAgentRunner(spec, llm=llm).run("go")
     assert out == "已从错误恢复"
     assert calls["n"] == 2
+
+
+def test_return_after_tools_passthrough_skips_second_llm() -> None:
+    echo = _echo_tool()
+    spec = SubAgentSpec(
+        name="echo_bot",
+        description="d",
+        system_prompt="s",
+        tools=[echo],
+        max_rounds=5,
+        max_repeated_tool=2,
+        return_after_tools=True,
+    )
+    calls = {"n": 0}
+
+    def llm(messages, tools):
+        calls["n"] += 1
+        return LLMResponse(
+            tool_calls=[ToolCall(id="c1", name="echo", arguments={"text": "raw-tool"})]
+        )
+
+    runner = SubAgentRunner(spec, llm=llm)
+    out = runner.run("go")
+    assert out == "raw-tool"
+    assert calls["n"] == 1
+    assert runner.last_trace is not None
+    assert runner.last_trace.outcome == "tool_passthrough"
+    assert runner.last_trace.llm_calls == 1
+    assert runner.last_trace.tool_names == ["echo"]
+
+
+def test_return_after_tools_false_does_second_llm_summary() -> None:
+    echo = _echo_tool()
+    spec = SubAgentSpec(
+        name="echo_bot",
+        description="d",
+        system_prompt="s",
+        tools=[echo],
+        max_rounds=5,
+        max_repeated_tool=3,
+        return_after_tools=False,
+    )
+    calls = {"n": 0}
+
+    def llm(messages, tools):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            return LLMResponse(
+                tool_calls=[ToolCall(id="c1", name="echo", arguments={"text": "raw-tool"})]
+            )
+        assert messages[-1]["role"] == "tool"
+        return LLMResponse(content="总结：raw-tool")
+
+    runner = SubAgentRunner(spec, llm=llm)
+    out = runner.run("go")
+    assert out == "总结：raw-tool"
+    assert calls["n"] == 2
+    assert runner.last_trace is not None
+    assert runner.last_trace.outcome == "llm_summary"
+    assert runner.last_trace.llm_calls == 2
+    assert runner.last_trace.return_after_tools is False
+
+
+def test_repo_analyst_summary_keeps_completion_marker() -> None:
+    from pydantic import BaseModel, Field
+
+    from repo2resume.agent.subagent import make_repo_analyst_spec
+
+    class Params(BaseModel):
+        x: str = Field(default="")
+
+    analyze = Tool(
+        name="analyze_repo",
+        description="analyze",
+        params_model=Params,
+        handler=lambda **_: "【repo_analyst已完成】\n统计：5 仓",
+        risk="readonly",
+    )
+    spec = make_repo_analyst_spec(analyze, return_after_tools=False)
+    calls = {"n": 0}
+
+    def llm(messages, tools):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            return LLMResponse(
+                tool_calls=[ToolCall(id="c1", name="analyze_repo", arguments={})]
+            )
+        return LLMResponse(content="## 分析结果\n仓库 5 个")
+
+    runner = SubAgentRunner(spec, llm=llm)
+    out = runner.run("分析")
+    assert out.startswith("【repo_analyst已完成】")
+    assert "仓库 5 个" in out
+    assert calls["n"] == 2
+
+
+def test_return_after_tools_false_with_repeat_limit_1_false_stuck() -> None:
+    """阈值=1 且关闭直传时，第一次调工具就会被判卡死——这就是必须同步调大阈值的原因。"""
+    echo = _echo_tool()
+    spec = SubAgentSpec(
+        name="echo_bot",
+        description="d",
+        system_prompt="s",
+        tools=[echo],
+        max_rounds=5,
+        max_repeated_tool=1,
+        return_after_tools=False,
+    )
+
+    def llm(messages, tools):
+        return LLMResponse(
+            tool_calls=[ToolCall(id="c1", name="echo", arguments={"text": "x"})]
+        )
+
+    runner = SubAgentRunner(spec, llm=llm)
+    out = runner.run("go")
+    assert "卡死" in out
+    assert runner.last_trace is not None
+    assert runner.last_trace.outcome == "stuck"
+
+
+def test_subagent_tool_hooks_record_inner_tools(tmp_path) -> None:
+    """子 registry 挂 TraceHook 后，内部 search/echo 应写入同一 session。"""
+    from repo2resume.agent.hooks import TraceHook
+    from repo2resume.storage.db import open_db
+
+    echo = _echo_tool()
+    spec = SubAgentSpec(
+        name="echo_bot",
+        description="d",
+        system_prompt="s",
+        tools=[echo],
+        max_rounds=5,
+        return_after_tools=True,
+    )
+
+    def llm(messages, tools):
+        return LLMResponse(
+            tool_calls=[ToolCall(id="c1", name="echo", arguments={"text": "ping"})]
+        )
+
+    db = open_db(tmp_path / "sub.db")
+    hook = TraceHook(db, session_id="sess-sub")
+    out = SubAgentRunner(spec, llm=llm, tool_hooks=[hook]).run("go")
+    assert "ping" in out
+    rows = db.conn.execute(
+        "SELECT tool_name FROM tool_traces WHERE session_id='sess-sub'"
+    ).fetchall()
+    assert [r[0] for r in rows] == ["echo"]
+
+

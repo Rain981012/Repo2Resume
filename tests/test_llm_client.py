@@ -7,7 +7,11 @@ from typing import Any
 import pytest
 
 from repo2resume.config import AppConfig
-from repo2resume.llm.client import LLMClient, _is_quota_exhausted
+from repo2resume.llm.client import (
+    LLMClient,
+    _is_provider_routing_error,
+    _is_quota_exhausted,
+)
 from repo2resume.storage.cache import SqliteCache
 
 
@@ -58,6 +62,9 @@ def test_complete_uses_cache(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) ->
     r2 = client.complete(messages)
     assert r1.content == "hi"
     assert r2.content == "hi"
+    assert calls["n"] == 1
+    r3 = client.complete(messages, role="writer")
+    assert r3.content == "hi"
     assert calls["n"] == 1
 
 
@@ -140,9 +147,103 @@ def test_quota_exhausted_falls_back(monkeypatch: pytest.MonkeyPatch, tmp_path: P
     assert "zai/glm-4.5-flash" in calls
 
 
+def test_provider_routing_error_falls_back(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    calls: list[str] = []
+
+    def fake_completion(**kwargs: Any) -> Any:
+        model = kwargs["model"]
+        calls.append(model)
+        if model == "zai/glm-5.2":
+            raise RuntimeError(
+                "LLM Provider NOT provided. Pass in the LLM provider you are trying to call. "
+                "You passed model=zai/glm-5.2"
+            )
+        return SimpleNamespace(
+            choices=[SimpleNamespace(message=SimpleNamespace(content="from-flash"))],
+            usage=SimpleNamespace(prompt_tokens=1, completion_tokens=1),
+        )
+
+    monkeypatch.setattr("repo2resume.llm.client.litellm.completion", fake_completion)
+    monkeypatch.setattr(
+        "repo2resume.llm.client.litellm.completion_cost",
+        lambda **kwargs: 0.0,
+    )
+    cfg = AppConfig(
+        data_dir=tmp_path,
+        llm_model="zai/glm-5.2",
+        llm_fallback_model="zai/glm-4.5-flash",
+        llm_api_key="k",
+        llm_api_base="https://open.bigmodel.cn/api/paas/v4",
+        llm_max_retries=1,
+    )
+    result = LLMClient(cfg).complete([{"role": "user", "content": "hi"}])
+    assert result.content == "from-flash"
+    assert result.model == "zai/glm-4.5-flash"
+    assert calls[0] == "zai/glm-5.2"
+
+
+def test_api_kwargs_prefixed_zai_skips_custom_provider(tmp_path: Path) -> None:
+    cfg = AppConfig(
+        data_dir=tmp_path,
+        llm_model="zai/glm-5.2",
+        llm_api_key="k",
+        llm_api_base="https://open.bigmodel.cn/api/paas/v4",
+    )
+    kwargs = LLMClient(cfg)._api_kwargs(model="zai/glm-5.2")
+    assert "custom_llm_provider" not in kwargs
+    assert kwargs["api_base"] == "https://open.bigmodel.cn/api/paas/v4"
+    assert kwargs["api_key"] == "k"
+
+
+def test_api_kwargs_bare_glm_sets_zai_provider(tmp_path: Path) -> None:
+    cfg = AppConfig(data_dir=tmp_path, llm_model="glm-5.2", llm_api_key="k")
+    kwargs = LLMClient(cfg)._api_kwargs(model="glm-5.2")
+    assert kwargs["custom_llm_provider"] == "zai"
+
+
+def test_unable_to_map_model_falls_back(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    calls: list[str] = []
+
+    def fake_completion(**kwargs: Any) -> Any:
+        model = kwargs["model"]
+        calls.append(model)
+        if model == "zai/glm-5.2":
+            raise RuntimeError(
+                "Unable to map your input to a model. Check your input. "
+                "You passed model=zai/glm-5.2, custom_llm_provider=zai"
+            )
+        return SimpleNamespace(
+            choices=[SimpleNamespace(message=SimpleNamespace(content="from-flash"))],
+            usage=SimpleNamespace(prompt_tokens=1, completion_tokens=1),
+        )
+
+    monkeypatch.setattr("repo2resume.llm.client.litellm.completion", fake_completion)
+    monkeypatch.setattr(
+        "repo2resume.llm.client.litellm.completion_cost",
+        lambda **kwargs: 0.0,
+    )
+    cfg = AppConfig(
+        data_dir=tmp_path,
+        llm_model="zai/glm-5.2",
+        llm_fallback_model="zai/glm-4.5-flash",
+        llm_api_key="k",
+        llm_max_retries=1,
+    )
+    result = LLMClient(cfg).complete([{"role": "user", "content": "hi"}])
+    assert result.content == "from-flash"
+    assert result.model == "zai/glm-4.5-flash"
+    assert calls[0] == "zai/glm-5.2"
+
+
 def test_is_quota_exhausted_detects_chinese_balance() -> None:
     assert _is_quota_exhausted(RuntimeError("账户余额不足"))
     assert not _is_quota_exhausted(RuntimeError("random network blip"))
+    assert _is_provider_routing_error(
+        RuntimeError("LLM Provider NOT provided. You passed model=zai/glm-5.2")
+    )
+    assert _is_provider_routing_error(
+        RuntimeError("Unable to map your input to a model. Check your input.")
+    )
 
 
 def test_completion_hard_timeout(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

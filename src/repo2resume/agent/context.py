@@ -79,6 +79,7 @@ A: ① 按「条数」裁而非按「轮次」裁，可能把一个 tool_call �
 from __future__ import annotations
 
 from collections.abc import Callable
+from tabnanny import check
 from typing import Any
 
 
@@ -181,10 +182,18 @@ class ContextManager:
         """
         if self.token_count() <= self._max_tokens:
             return False
+        keep_last = max(keep_last, 0)
+        if keep_last == 0:
+            self._messages = []
         else:
+            while (
+                keep_last < len(self._messages)
+                and self._messages[-keep_last].get("role") == "tool"
+            ):
+                keep_last += 1
             self._messages = self._messages[-keep_last:]
-            self._messages.insert(0, {"role": "system", "content": "[已裁剪较早的对话]"})
-            return True
+        self._messages.insert(0, {"role": "system", "content": "[已裁剪较早的对话]"})
+        return True
 
 
 def _char_count(messages: list[dict[str, Any]]) -> int:

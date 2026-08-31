@@ -117,12 +117,23 @@ class TraceHook:
                                          result if error is None else None, error, latency_ms)
           4) return result   # 观测不碰结果
         """
+        # before 未执行就进 after（如未知工具名在更早 hook 失败）时不要 pop 空栈
+        if not self._starts:
+            return result
         start = self._starts.pop()
         latency_ms = int((time.perf_counter() - start) * 1000)
         self._db.record_tool_trace(
             self._session_id, name, arguments, result if error is None else None, error, latency_ms
         )
         return result
+
+    def record_denied(self, name: str, arguments: dict, error: object) -> None:
+        """PermissionHook 拒绝发生在 Trace.before 之前时，补记一行。"""
+        latency_ms = 0
+        if self._starts:
+            start = self._starts.pop()
+            latency_ms = int((time.perf_counter() - start) * 1000)
+        self._db.record_tool_trace(self._session_id, name, arguments, None, error, latency_ms)
 
 
 class ErrorRecoveryHook:

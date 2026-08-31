@@ -9,16 +9,21 @@ import pytest
 from repo2resume.resume.writer import (
     draft_to_markdown,
     ensure_bullet_evidence,
+    estimate_repo_richness,
     expand_fused_bullets,
+    pack_materials_for_writer,
     sanitize_job_title,
     select_materials,
+    selected_repo_order,
     write_experience,
 )
 from repo2resume.storage.models import (
     BulletDraft,
     EvidenceRef,
     FactSheet,
+    Highlight,
     ProjectExperienceDraft,
+    ProjectOneLiner,
     ResumeDraft,
     SearchHit,
     SkillProfile,
@@ -218,3 +223,88 @@ def test_ensure_bullet_evidence_fills_empty_source_and_title() -> None:
 
 def test_sanitize_job_title() -> None:
     assert sanitize_job_title("Python 后端开发工程师招聘") == "Python 后端开发工程师"
+
+
+def test_select_materials_ranks_by_jd_overlap() -> None:
+    hits = [
+        _hit("f1", "pdf-ui", 0.99, "React 前端 PDF 评论 登录页面 上传"),
+        _hit("b1", "social-backend", 0.50, "Django authors inbox 后端 API PostgreSQL"),
+    ]
+    selected = select_materials(
+        jd_text="后端开发实习生 Python Django",
+        hits=hits,
+        max_projects=2,
+    )
+    order: list[str] = []
+    for hit in selected:
+        repo = hit.metadata["repo"]
+        if repo not in order:
+            order.append(str(repo))
+    assert order[0] == "social-backend"
+
+
+def test_select_materials_preserve_hit_order() -> None:
+    hits = [
+        _hit("f1", "pdf-ui", 0.99, "React 前端 PDF 评论 登录页面 上传"),
+        _hit("b1", "social-backend", 0.50, "Django authors inbox 后端 API PostgreSQL"),
+    ]
+    selected = select_materials(
+        jd_text="后端开发实习生 Python Django",
+        hits=hits,
+        max_projects=2,
+        preserve_hit_order=True,
+    )
+    order: list[str] = []
+    for hit in selected:
+        repo = hit.metadata["repo"]
+        if repo not in order:
+            order.append(str(repo))
+    assert order[0] == "pdf-ui"
+
+
+def test_select_materials_infers_repo_from_doc_id() -> None:
+    hits = [
+        SearchHit(
+            doc_id="repo:Repo2Resume:summary",
+            text="agent loop RAG",
+            score=0.9,
+            rank=1,
+            source="hybrid",
+            metadata={},
+        ),
+        SearchHit(
+            doc_id="repo:socialdistribution:summary",
+            text="django inbox",
+            score=0.8,
+            rank=2,
+            source="hybrid",
+            metadata={},
+        ),
+    ]
+    selected = select_materials(jd_text="agent RAG", hits=hits, max_projects=2)
+    assert selected_repo_order(selected)[:2] == ["Repo2Resume", "socialdistribution"]
+
+
+def test_pack_materials_sets_evidence_chains() -> None:
+    profile = SkillProfile(
+        primary_direction="Python",
+        highlights_pool=[
+            Highlight(
+                repo="r",
+                claim="agent loop",
+                evidence=EvidenceRef(source="r", detail="a"),
+            ),
+            Highlight(
+                repo="r",
+                claim="hybrid search",
+                evidence=EvidenceRef(source="r", detail="b"),
+            ),
+        ],
+        project_one_liners=[ProjectOneLiner(repo="r", summary="CLI 简历工具")],
+    )
+    materials = [_hit("1", "r", 0.9, "loop"), _hit("2", "r", 0.8, "search")]
+    packed = pack_materials_for_writer(materials, profile)
+    assert packed[0]["repo"] == "r"
+    assert packed[0]["evidence_chains"] >= 4
+    assert packed[0]["one_liner"] == "CLI 简历工具"
+    assert estimate_repo_richness(materials, profile)["r"] >= 4

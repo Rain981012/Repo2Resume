@@ -6,6 +6,7 @@ db 方法（record_tool_trace / tool_trace_stats）已由脚手架提供。
 
 from __future__ import annotations
 
+import pytest
 from pydantic import BaseModel
 
 from repo2resume.agent.hooks import TraceHook
@@ -114,3 +115,43 @@ def test_trace_isolated_per_session(tmp_path) -> None:
     stats_b = db.tool_trace_stats("b")
     assert stats_a["count"] == 1
     assert stats_b["count"] == 1
+
+
+def test_trace_records_permission_denied(tmp_path) -> None:
+    from repo2resume.agent.hooks import PermissionDenied, PermissionHook
+
+    db = _new_db(tmp_path)
+    reg = ToolRegistry()
+    reg.register(make_add_tool())
+    reg.add_hook(
+        PermissionHook(
+            risk_of=lambda n: "write",
+            needs_confirm_risks={"write"},
+            confirm=lambda n, a: False,
+        )
+    )
+    reg.add_hook(TraceHook(db, session_id="deny"))
+    with pytest.raises(PermissionDenied):
+        reg.call("add", {"a": 1, "b": 2})
+    rows = db.conn.execute(
+        "SELECT tool_name, error FROM tool_traces WHERE session_id='deny'"
+    ).fetchall()
+    assert len(rows) == 1
+    assert rows[0][0] == "add"
+    assert "拒绝" in (rows[0][1] or "")
+
+
+def test_tool_trace_stats_filters_by_run_id(tmp_path) -> None:
+    import repo2resume.observability.run_context as rc
+
+    db = _new_db(tmp_path)
+    reg = ToolRegistry()
+    reg.register(make_add_tool())
+    reg.add_hook(TraceHook(db, session_id="s"))
+    rc._turn_depth.set(0)
+    rc.enter_agent_turn()
+    rid = rc.current_run_id()
+    reg.call("add", {"a": 1, "b": 1})
+    rc.exit_agent_turn()
+    assert db.tool_trace_stats("s", run_id=rid)["count"] == 1
+    assert db.tool_trace_stats("s", run_id="turn-missing")["count"] == 0

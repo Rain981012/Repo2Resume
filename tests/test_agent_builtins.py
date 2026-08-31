@@ -7,7 +7,13 @@ from pathlib import Path
 import pytest
 
 from repo2resume.agent.builtins import make_analyze_tool
-from repo2resume.storage.models import ProjectSummary, RepoStatsBundle, StatsSummary
+from repo2resume.storage.models import (
+    ProjectSummary,
+    RepoStatsBundle,
+    SkillProfile,
+    StatsSummary,
+    TechStack,
+)
 
 
 @pytest.fixture()
@@ -97,3 +103,46 @@ def test_analyze_tool_coerces_paths_json_string(fake_bundle) -> None:
     tool = make_analyze_tool(config=None, cache=None, db=None)
     out = tool.call({"paths": '["/tmp/demo"]', "authors": ["ada@example.com"]})
     assert "repo_count: 1" in out
+
+
+def test_analyze_tool_includes_stack_brief_when_profile_present(monkeypatch) -> None:
+    bundle = RepoStatsBundle(
+        generated_at="2026-01-01T00:00:00+00:00",
+        summary=StatsSummary(
+            repo_count=1,
+            total_author_commits=8,
+            overall_language_share={"Python": 1.0},
+        ),
+        repos=[
+            ProjectSummary(
+                name="demo",
+                path="/tmp/demo",
+                head_commit="abc",
+                total_commits=8,
+                author_commits=8,
+                author_share=1.0,
+            )
+        ],
+    )
+    profile = SkillProfile(
+        primary_direction="Python 后端",
+        secondary_directions=["数据"],
+        tech_stack=TechStack(
+            languages=["Python", "TypeScript"],
+            frameworks=["FastAPI", "Celery"],
+            databases=["Redis", "PostgreSQL"],
+            tools_and_infra=["Nginx", "Docker", "GitHub Actions"],
+        ),
+    )
+
+    def fake_run_analyze(paths, options, *, config, cache, db, stats_only, use_cache):
+        return bundle, profile
+
+    monkeypatch.setattr("repo2resume.agent.builtins.run_analyze", fake_run_analyze)
+
+    tool = make_analyze_tool(config=None, cache=None, db=None)
+    out = tool.call({"paths": ["/tmp/demo"], "authors": ["ada@example.com"]})
+    assert "主要技术栈（提炼）" in out
+    assert "框架/中间件：FastAPI, Celery" in out
+    assert "数据与缓存：Redis, PostgreSQL" in out
+    assert "Infra/Components：Nginx, Docker, GitHub Actions" in out

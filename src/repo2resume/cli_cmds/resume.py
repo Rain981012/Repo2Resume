@@ -77,10 +77,13 @@ def register(app: typer.Typer) -> None:
                     strip_src=strip_src,
                 )
             approved = result.reports[-1].approved if result.reports else False
+            from repo2resume.resume.critic import format_generate_resume_status
+
+            status = format_generate_resume_status(result.reports)
             console.print(
                 f"[green]Wrote[/green] {result.output_path}  "
                 f"(draft_id={result.draft_id}, critic_rounds={len(result.reports)}, "
-                f"approved={approved})"
+                f"approved={approved}, status={status})"
             )
             console.print(Panel(result.markdown[:3000], title="Preview", style="cyan"))
         except Exception as exc:  # noqa: BLE001

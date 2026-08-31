@@ -2,6 +2,7 @@
 
 from repo2resume.resume.critic import (
     critique,
+    format_generate_resume_status,
     programmatic_checks,
     revise_experience,
     writer_critic_loop,
@@ -12,6 +13,7 @@ from repo2resume.resume.writer import draft_to_markdown, select_materials, write
 __all__ = [
     "critique",
     "draft_to_markdown",
+    "format_generate_resume_status",
     "programmatic_checks",
     "render_project_experience",
     "render_resume",

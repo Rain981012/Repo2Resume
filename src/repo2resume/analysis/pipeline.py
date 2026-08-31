@@ -45,8 +45,15 @@ def mine_with_cache(
 
     results: list[ProjectSummary] = []
     errors: list[dict[str, str]] = []
-    for raw in paths:
+    total = len(paths)
+    for i, raw in enumerate(paths, 1):
         repo = Path(raw).expanduser().resolve()
+        try:
+            from repo2resume.agent.progress import emit_progress
+
+            emit_progress(f"正在分析仓库 [{i}/{total}] {repo.name}…")
+        except ImportError:  # pragma: no cover
+            pass
         try:
             from repo2resume.analysis.git_miner import short_head
 
@@ -55,6 +62,12 @@ def mine_with_cache(
             cached = get_cached_project(cache, key)
             if cached is not None and cached.head_commit == head:
                 logger.debug("cache hit %s", key)
+                try:
+                    from repo2resume.agent.progress import emit_progress
+
+                    emit_progress(f"仓库缓存命中 [{i}/{total}] {repo.name}")
+                except ImportError:  # pragma: no cover
+                    pass
                 results.append(cached)
                 continue
             project = mine_one(repo, options)
@@ -102,9 +115,25 @@ def run_analyze(
     返回 `(stats, profile)`，stats_only 时 profile 为 None。
     """
     stats = mine_with_cache(paths, options, cache, use_cache=use_cache)
+    # 尽早落盘完整统计，供简历索引（README / commits / deps）与事实清单使用
+    if db is not None:
+        db.save_repo_stats_bundle(stats)
     if stats_only:
         return stats, None
 
+    try:
+        from repo2resume.agent.progress import emit_progress
+    except ImportError:  # pragma: no cover
+        emit_progress = None  # type: ignore[assignment]
+
+    def _prog(msg: str) -> None:
+        if emit_progress is not None:
+            emit_progress(msg)
+
+    _prog(
+        f"git 统计完成：{stats.summary.repo_count} 仓，"
+        f"作者提交 {stats.summary.total_author_commits}；识别技术栈…"
+    )
     tech = detect_tech_stack(stats)
     facts = safe_fact_sheet(stats)
 
@@ -112,14 +141,22 @@ def run_analyze(
     if cache is not None and use_cache:
         pkey = profile_cache_key(stats)
         profile = get_cached_profile(cache, pkey)
+        if profile is not None:
+            _prog("技能画像缓存命中")
 
     if profile is None:
+        _prog("调用 LLM 生成技能画像（可能需 1–2 分钟，请勿重复发送）…")
         llm = LLMClient(config, cache=cache)
         profiler = Profiler(llm)
-        profile = profiler.build_profile(stats, tech_hints=tech, fact_sheet=facts)
+        try:
+            profile = profiler.build_profile(stats, tech_hints=tech, fact_sheet=facts)
+        except TimeoutError as exc:
+            _prog(f"技能画像超时，已返回统计摘要（不再自动重试）：{exc}")
+            return stats, None
         profile.source_stats_hash = profile_cache_key(stats)
         if cache is not None and use_cache:
             set_cached_profile(cache, profile_cache_key(stats), profile)
+        _prog("技能画像生成完成")
 
     if profile is not None:
         # 用挖矿数字强制补全低贡献 caution（不依赖 LLM 是否写对格式）

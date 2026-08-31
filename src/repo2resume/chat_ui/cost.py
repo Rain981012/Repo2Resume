@@ -14,16 +14,22 @@ def print_session_cost(
     db: Database,
     session_id: str,
     search_usage: SearchUsageTracker,
+    *,
+    run_id: str | None = None,
 ) -> None:
-    tstats = db.tool_trace_stats(session_id)
-    lstats = db.llm_trace_stats(session_id)
+    tstats = db.tool_trace_stats(session_id, run_id=run_id)
+    lstats = db.llm_trace_stats(session_id, run_id=run_id)
     sstats = search_usage.stats()
+    scope = f"session {session_id}" + (f" run {run_id}" if run_id else "")
     if tstats["count"] == 0 and lstats["count"] == 0 and sstats["count"] == 0:
-        console.print("[dim]本 session 暂无调用记录[/dim]")
+        if run_id:
+            console.print(f"[dim]本轮 {run_id} 暂无调用记录[/dim]")
+        else:
+            console.print("[dim]本 session 暂无调用记录[/dim]")
         return
 
     if lstats["count"] > 0:
-        ltbl = Table(title=f"session {session_id} LLM 调用成本", style="magenta")
+        ltbl = Table(title=f"{scope} LLM 调用成本", style="magenta")
         ltbl.add_column("model")
         ltbl.add_column("count", justify="right")
         ltbl.add_column("in tok", justify="right")
@@ -51,7 +57,7 @@ def print_session_cost(
 
     if sstats["count"] > 0:
         stbl = Table(
-            title=f"session {session_id} 搜岗 API（Bocha/Tavily）",
+            title=f"{scope} 搜岗 API（Bocha/Tavily）",
             style="green",
         )
         stbl.add_column("provider")
@@ -86,7 +92,7 @@ def print_session_cost(
         )
 
     if tstats["count"] > 0:
-        tbl = Table(title=f"session {session_id} 工具调用统计", style="cyan")
+        tbl = Table(title=f"{scope} 工具调用统计", style="cyan")
         tbl.add_column("tool")
         tbl.add_column("count", justify="right")
         tbl.add_column("latency(ms)", justify="right")

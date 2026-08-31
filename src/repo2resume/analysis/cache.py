@@ -14,6 +14,8 @@ from repo2resume.analysis.git_miner import MineOptions
 from repo2resume.storage.cache import CacheBackend
 from repo2resume.storage.models import ProjectSummary, RepoStatsBundle, SkillProfile
 
+PROFILE_CACHE_SCHEMA = "v2"
+
 
 def _hash_text(text: str) -> str:
     """对文本取 sha256 前 16 位，用于把长字符串（路径/作者列表）压成短摘要进缓存键。"""
@@ -66,6 +68,7 @@ def profile_cache_key(stats: RepoStatsBundle) -> str:
     """画像缓存键：把作者/since/各仓 head/summary 整体 hash，统计变则画像重算。"""
     payload = json.dumps(
         {
+            "schema": PROFILE_CACHE_SCHEMA,
             "authors": stats.author_filters,
             "since": stats.since,
             "heads": [(r.path, r.head_commit) for r in stats.repos],

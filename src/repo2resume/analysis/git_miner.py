@@ -292,8 +292,15 @@ def mine_repos(paths: list[Path], options: MineOptions) -> RepoStatsBundle:
     """逐仓库调 `mine_one`，单仓失败记进 errors 不中断，最后聚合成 `RepoStatsBundle`。"""
     results: list[ProjectSummary] = []
     errors: list[dict[str, str]] = []
-    for raw in paths:
+    total = len(paths)
+    for i, raw in enumerate(paths, 1):
         repo = Path(raw).expanduser().resolve()
+        try:
+            from repo2resume.agent.progress import emit_progress
+
+            emit_progress(f"正在分析仓库 [{i}/{total}] {repo.name}…")
+        except ImportError:  # pragma: no cover
+            pass
         try:
             results.append(mine_one(repo, options))
         except Exception as exc:  # noqa: BLE001 — per-repo isolation

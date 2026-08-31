@@ -119,6 +119,8 @@ class AgentLoop:
         context: ContextManager,
         max_rounds: int = 10,
         max_repeated_tool: int = 3,
+        return_after_tools: bool = False,
+        early_return_markers: tuple[str, ...] = (),
     ) -> None:
         self._llm = llm
         self._registry = registry
@@ -128,6 +130,14 @@ class AgentLoop:
         # Phase 2.5：重复调用卡死检测。连续 max_repeated_tool 次调同一工具名 → 判定卡死，停。
         # 防模型反复调同一工具陷入死循环（max_rounds 是硬上限，但这个能更早、更准地停）。
         self._max_repeated_tool = max_repeated_tool
+        # 子代理场景：工具跑完直接把结果当最终回复，省掉「再总结一轮 LLM」（易超时/胡写）。
+        self._return_after_tools = return_after_tools
+        # 主 chat：工具结果含约定标记（如【job_scout已完成】）时直接展示，避免弱模型继续空转耗轮数。
+        self._early_return_markers = early_return_markers
+        self._last_tool_texts: list[str] = []
+        self._on_event: Callable[[str, Any], None] | None = None
+        self.last_stop_reason: str = "final_text"
+        self.last_stuck_detail: dict[str, Any] | None = None
 
     def _execute_tools(self, tool_calls: list[ToolCall]) -> None:
         """空 1：执行一批工具调用，把结果回填进 context。
@@ -145,6 +155,7 @@ class AgentLoop:
                   result = self._registry.call(tc.name, tc.arguments)
                   self._context.add_tool_result(tc.id, str(result))
         """
+        self._last_tool_texts = []
         for tc in tool_calls:
             check_cancelled()
             if self._on_event:
@@ -164,7 +175,9 @@ class AgentLoop:
                 raise
             if self._on_event:
                 self._on_event("tool_done", tc.name)
-            self._context.add_tool_result(tc.id, str(result))
+            text = str(result)
+            self._last_tool_texts.append(text)
+            self._context.add_tool_result(tc.id, text)
 
     def run(
         self,
@@ -201,6 +214,53 @@ class AgentLoop:
         """
         填空: 按 空 2 / 空 3 / 空 4 三段写
         """
+        from repo2resume.observability.bucket import infer_bucket
+        from repo2resume.observability.langsmith_span import span_call
+        from repo2resume.observability.run_context import (
+            current_llm_model,
+            current_run_id,
+            current_session_id,
+            enter_agent_turn,
+            exit_agent_turn,
+            git_sha,
+        )
+
+        enter_agent_turn()
+        self.last_stop_reason = "final_text"
+        self.last_stuck_detail = None
+        try:
+            return span_call(
+                "agent.turn",
+                lambda: self._run_turn(user_input, state, on_event),
+                run_type="chain",
+                inputs={"user": (user_input or "")[:400]},
+                metadata={
+                    "session_id": current_session_id() or "",
+                    "obs_run_id": current_run_id() or "",
+                    "git_sha": git_sha(),
+                    "llm_model": current_llm_model() or "",
+                },
+                outputs_of=lambda text: {
+                    "text": text or "",
+                    "stop_reason": self.last_stop_reason,
+                    "bucket": infer_bucket(stop_reason=self.last_stop_reason),
+                    **({"stuck": self.last_stuck_detail} if self.last_stuck_detail else {}),
+                },
+            )
+        finally:
+            exit_agent_turn()
+            from repo2resume.observability.repro import write_repro
+            from repo2resume.observability.run_context import turn_depth
+
+            if turn_depth() == 0:
+                write_repro(extra={"stop_reason": self.last_stop_reason})
+
+    def _run_turn(
+        self,
+        user_input: str,
+        state: dict[str, Any] | None = None,
+        on_event: Callable[[str, Any], None] | None = None,
+    ) -> str:
         # 空2
         self._context.add("user", user_input)
         self._context._system = self._assembler.build(state)
@@ -214,6 +274,19 @@ class AgentLoop:
         # 空3
         for _ in range(self._max_rounds):
             check_cancelled()
+            n_before = len(self._context._messages)
+            if self._context.maybe_compact():
+                n_kept = max(len(self._context._messages) - 1, 0)
+                dropped = n_before - n_kept
+                from repo2resume.observability.langsmith_span import span_call as _span
+
+                _span(
+                    "context.compact",
+                    lambda n=dropped: n,
+                    outputs_of=lambda n: {"dropped": n},
+                )
+                if on_event:
+                    on_event("context_compacted", dropped)
             messages = self._context.messages()
             tools = self._registry.list_schemas()
             resp = self._llm(messages, tools)
@@ -237,7 +310,19 @@ class AgentLoop:
                     self._execute_tools(resp.tool_calls)
                 except RunCancelled:
                     self._pad_missing_tool_results(resp.tool_calls)
+                    self.last_stop_reason = "cancelled"
                     raise
+
+                if self._return_after_tools and self._last_tool_texts:
+                    self.last_stop_reason = "return_after_tools"
+                    return "\n\n".join(self._last_tool_texts)
+
+                if self._early_return_markers and self._last_tool_texts:
+                    for text in self._last_tool_texts:
+                        if any(marker in text for marker in self._early_return_markers):
+                            self._context.add("assistant", text)
+                            self.last_stop_reason = "early_marker"
+                            return text
 
                 # 空 5（Phase 2.5 卡死检测）：连续同名工具调用超阈值则停
                 # 步骤:
@@ -254,14 +339,28 @@ class AgentLoop:
                     last_sig = sig
                     repeat = 1
                 if repeat >= self._max_repeated_tool:
-                    return f"[检测到连续 {repeat} 次重复调用 {sig}，判定卡死，停止]"
+                    self.last_stop_reason = "stuck"
+                    from repo2resume.observability.stuck import (
+                        explain_stuck,
+                        format_stuck_message,
+                    )
+
+                    self.last_stuck_detail = explain_stuck(
+                        sig=sig,
+                        repeat=repeat,
+                        tool_texts=self._last_tool_texts,
+                        early_markers=self._early_return_markers,
+                    )
+                    return format_stuck_message(self.last_stuck_detail)
 
                 continue
             else:
                 self._context.add("assistant", resp.content or "")
+                self.last_stop_reason = "final_text"
                 return resp.content or ""
 
         # 空4
+        self.last_stop_reason = "max_rounds"
         return f"[达到最大轮数 {self._max_rounds}，停止]"
 
     def _pad_missing_tool_results(self, tool_calls: list[ToolCall]) -> None:

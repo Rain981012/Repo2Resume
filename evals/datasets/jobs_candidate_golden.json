@@ -1,0 +1,14 @@
+[
+  {
+    "id": "detail_url_high_confidence",
+    "url": "https://www.zhipin.com/job_detail/abc123",
+    "expected_bucket": "job_detail",
+    "expected_confidence": "high"
+  },
+  {
+    "id": "search_url_low_confidence",
+    "url": "https://www.zhipin.com/zhaopin/ae7868255d0e25bd1Hx529S6",
+    "expected_bucket": "search_or_list",
+    "expected_confidence": "low"
+  }
+]

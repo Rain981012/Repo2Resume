@@ -64,3 +64,28 @@ def test_hybrid_search_calls_store():
     store = FakeStore()
     hits = hybrid_search(store, "backend", top_k=10)
     assert [h.doc_id for h in hits] == ["B", "A", "C"]
+
+
+def test_rrf_preserves_metadata():
+    v = [
+        SearchHit(
+            doc_id="A",
+            text="t",
+            score=0.9,
+            rank=1,
+            source="vector",
+            metadata={"repo": "Repo2Resume"},
+        )
+    ]
+    kw = [
+        SearchHit(
+            doc_id="A",
+            text="t",
+            score=2.0,
+            rank=1,
+            source="keyword",
+            metadata={},
+        )
+    ]
+    out = reciprocal_rank_fusion(v, kw, top_k=5)
+    assert out[0].metadata["repo"] == "Repo2Resume"

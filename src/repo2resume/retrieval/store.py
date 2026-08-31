@@ -209,7 +209,7 @@ class VectorStore:
                     score=score,
                     rank=rank,
                     source="vector",
-                    metadata=json.loads(meta.get("metadata_json", "{}")) if meta else {},
+                    metadata=_search_metadata(doc_id, meta),
                 )
             )
         return hits
@@ -220,9 +220,11 @@ class VectorStore:
             return []
         # 去掉 query 中 FTS5 特殊字符，避免语法错误
         safe_query = _sanitize_fts_query(query)
+        if not safe_query:
+            return []
         rows = self.db.conn.execute(
             "SELECT doc_id, text, rank FROM fts_documents WHERE text MATCH ? "
-            "ORDER BY rank DESC LIMIT ?",
+            "ORDER BY rank LIMIT ?",
             (safe_query, top_k),
         ).fetchall()
         hits: list[SearchHit] = []
@@ -231,10 +233,10 @@ class VectorStore:
                 SearchHit(
                     doc_id=row["doc_id"],
                     text=row["text"],
-                    score=float(row["rank"]),
+                    score=-float(row["rank"]),
                     rank=rank,
                     source="keyword",
-                    metadata={},
+                    metadata=_search_metadata(row["doc_id"], None),
                 )
             )
         return hits
@@ -328,10 +330,46 @@ class VectorStore:
 # ---------------------------------------------------------------------------
 
 
+def _repo_from_doc_id(doc_id: str) -> str | None:
+    if (doc_id or "").startswith("repo:"):
+        parts = doc_id.split(":")
+        if len(parts) >= 2 and parts[1].strip():
+            return parts[1].strip()
+    return None
+
+
+def _search_metadata(doc_id: str, extra: dict | None) -> dict:
+    """合并 Chroma 顶层 repo/chunk_type、metadata_json，以及 doc_id 里的仓名。"""
+    out: dict = {}
+    if extra:
+        raw = extra.get("metadata_json")
+        if isinstance(raw, str) and raw.strip():
+            try:
+                parsed = json.loads(raw)
+                if isinstance(parsed, dict):
+                    out.update(parsed)
+            except json.JSONDecodeError:
+                pass
+        elif isinstance(raw, dict):
+            out.update(raw)
+        repo = extra.get("repo")
+        if isinstance(repo, str) and repo.strip() and not str(out.get("repo") or "").strip():
+            out["repo"] = repo.strip()
+        chunk_type = extra.get("chunk_type")
+        if isinstance(chunk_type, str) and chunk_type and not out.get("chunk_type"):
+            out["chunk_type"] = chunk_type
+    if not str(out.get("repo") or "").strip():
+        inferred = _repo_from_doc_id(doc_id)
+        if inferred:
+            out["repo"] = inferred
+    return out
+
+
 def _sanitize_fts_query(query: str) -> str:
-    """转义 FTS5 查询中的特殊字符，并去掉空词。"""
+    """转义 FTS5 特殊字符，丢弃 trigram 无法匹配的短词，词之间用 OR 提高召回。"""
     tokens = query.replace('"', '""').split()
-    return " ".join(f'"{t}"' for t in tokens if t)
+    quoted = [f'"{t}"' for t in tokens if t and len(t) >= 3]
+    return " OR ".join(quoted)
 
 
 def _slug(text: str) -> str:

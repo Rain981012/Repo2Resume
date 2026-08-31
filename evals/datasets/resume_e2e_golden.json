@@ -1,0 +1,185 @@
+[
+  {
+    "id": "e2e_python_backend",
+    "jd_text": "Python 后端工程师：FastAPI 或 Django、Redis、能讲清模块边界，不要整站贪功。",
+    "job_title": "Python 后端工程师",
+    "profile": {
+      "primary_direction": "Python 后端开发",
+      "secondary_directions": ["AI 应用开发"],
+      "tech_stack": {
+        "languages": ["Python"],
+        "frameworks": ["Django", "FastAPI"],
+        "databases": ["Redis", "PostgreSQL"]
+      },
+      "project_one_liners": [
+        {"repo": "social-dist", "summary": "去中心化社交内容分发服务。"}
+      ],
+      "highlights_pool": [
+        {
+          "repo": "social-dist",
+          "claim": "实现 inbox CRUD 与跨节点签名校验",
+          "evidence": {"source": "social-dist", "detail": "inbox"}
+        },
+        {
+          "repo": "social-dist",
+          "claim": "关注关系写路径与缓存失效",
+          "evidence": {"source": "social-dist", "detail": "follow"}
+        }
+      ],
+      "caution": []
+    },
+    "fact_sheet": {
+      "entries": [
+        {
+          "key": "social-dist.inbox",
+          "value": "inbox CRUD",
+          "evidence": {"source": "social-dist", "detail": "commits"}
+        }
+      ]
+    },
+    "materials": [
+      {
+        "doc_id": "repo:social-dist:highlight:inbox",
+        "text": "Implemented inbox CRUD and cross-node post federation for distributed social API",
+        "score": 0.9,
+        "rank": 1,
+        "source": "hybrid",
+        "metadata": {"repo": "social-dist"}
+      },
+      {
+        "doc_id": "repo:social-dist:summary",
+        "text": "Distributed social platform backend Django REST authors posts inbox",
+        "score": 0.8,
+        "rank": 2,
+        "source": "hybrid",
+        "metadata": {"repo": "social-dist"}
+      }
+    ]
+  },
+  {
+    "id": "e2e_frontend",
+    "jd_text": "前端工程师：React 或 Vue、TypeScript、组件化。",
+    "job_title": "前端工程师",
+    "profile": {
+      "primary_direction": "全栈开发",
+      "tech_stack": {
+        "languages": ["TypeScript"],
+        "frameworks": ["React", "Vue"]
+      },
+      "project_one_liners": [
+        {"repo": "web-ui", "summary": "React TypeScript SPA。"}
+      ],
+      "highlights_pool": [
+        {
+          "repo": "web-ui",
+          "claim": "组件库与 Vite 打包",
+          "evidence": {"source": "web-ui", "detail": "components"}
+        }
+      ]
+    },
+    "materials": [
+      {
+        "doc_id": "repo:web-ui:summary",
+        "text": "React frontend TypeScript SPA with Vite and component library",
+        "score": 0.9,
+        "rank": 1,
+        "source": "hybrid",
+        "metadata": {"repo": "web-ui"}
+      }
+    ]
+  },
+  {
+    "id": "e2e_data_etl",
+    "jd_text": "数据工程：Spark ETL、仓库入仓、schema 治理。",
+    "job_title": "数据工程师",
+    "profile": {
+      "primary_direction": "数据工程",
+      "tech_stack": {"other": ["Spark", "Parquet"]},
+      "project_one_liners": [
+        {"repo": "etl-spark", "summary": "数仓入仓作业。"}
+      ]
+    },
+    "materials": [
+      {
+        "doc_id": "repo:etl-spark:summary",
+        "text": "data pipeline ETL Spark jobs for warehouse ingestion",
+        "score": 0.9,
+        "rank": 1,
+        "source": "hybrid",
+        "metadata": {"repo": "etl-spark"}
+      },
+      {
+        "doc_id": "repo:etl-spark:commits",
+        "text": "add spark job for daily ETL, fix parquet schema drift",
+        "score": 0.7,
+        "rank": 2,
+        "source": "hybrid",
+        "metadata": {"repo": "etl-spark"}
+      }
+    ]
+  },
+  {
+    "id": "e2e_k8s",
+    "jd_text": "基础设施：Kubernetes、Helm、Terraform。",
+    "job_title": "基础设施工程师",
+    "profile": {
+      "primary_direction": "基础设施",
+      "tech_stack": {"tools_and_infra": ["Kubernetes", "Helm", "Terraform"]}
+    },
+    "materials": [
+      {
+        "doc_id": "repo:k8s-ops:summary",
+        "text": "Kubernetes and container orchestration tooling for staging clusters",
+        "score": 0.9,
+        "rank": 1,
+        "source": "hybrid",
+        "metadata": {"repo": "k8s-ops"}
+      },
+      {
+        "doc_id": "repo:k8s-ops:deps",
+        "text": "kubernetes helm docker-compose terraform",
+        "score": 0.8,
+        "rank": 2,
+        "source": "hybrid",
+        "metadata": {"repo": "k8s-ops"}
+      }
+    ]
+  },
+  {
+    "id": "e2e_agent_cli",
+    "jd_text": "Agent 开发：tool-use 循环、Writer-Critic、可观测。",
+    "job_title": "Agent 开发工程师",
+    "profile": {
+      "primary_direction": "AI 应用开发",
+      "tech_stack": {"languages": ["Python"], "frameworks": ["LiteLLM"]},
+      "project_one_liners": [
+        {"repo": "resume-cli", "summary": "本地仓库分析生成 Markdown 简历。"}
+      ],
+      "highlights_pool": [
+        {
+          "repo": "resume-cli",
+          "claim": "Built CLI agent loop with tool registry Writer-Critic",
+          "evidence": {"source": "resume-cli", "detail": "agent"}
+        }
+      ]
+    },
+    "materials": [
+      {
+        "doc_id": "repo:resume-cli:highlight:agent",
+        "text": "Built CLI agent loop with tool registry Writer-Critic resume generation",
+        "score": 0.9,
+        "rank": 1,
+        "source": "hybrid",
+        "metadata": {"repo": "resume-cli"}
+      },
+      {
+        "doc_id": "repo:resume-cli:summary",
+        "text": "Repo2Resume CLI analyze git repos skill profile job match Markdown resume",
+        "score": 0.8,
+        "rank": 2,
+        "source": "hybrid",
+        "metadata": {"repo": "resume-cli"}
+      }
+    ]
+  }
+]

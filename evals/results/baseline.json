@@ -1,0 +1,340 @@
+{
+  "created_at": "2026-08-26T17:02:01.821580+00:00",
+  "suites": [
+    {
+      "name": "retrieval",
+      "metrics": {
+        "count": 10.0,
+        "recall@5": 0.95,
+        "mrr": 0.8
+      },
+      "cases": [
+        {
+          "query": "Python backend microservices FastAPI",
+          "expected_doc_ids": [
+            "repo:demo-api:summary",
+            "repo:demo-api:commits"
+          ],
+          "recall@5": 0.5,
+          "mrr": 1.0
+        },
+        {
+          "query": "Kubernetes and container orchestration",
+          "expected_doc_ids": [
+            "repo:k8s-ops:summary",
+            "repo:k8s-ops:deps"
+          ],
+          "recall@5": 1.0,
+          "mrr": 1.0
+        },
+        {
+          "query": "machine learning transformers",
+          "expected_doc_ids": [
+            "profile:tech_stack",
+            "repo:ml-lab:summary"
+          ],
+          "recall@5": 1.0,
+          "mrr": 1.0
+        },
+        {
+          "query": "React frontend TypeScript",
+          "expected_doc_ids": [
+            "repo:web-ui:summary"
+          ],
+          "recall@5": 1.0,
+          "mrr": 0.5
+        },
+        {
+          "query": "data pipeline ETL Spark",
+          "expected_doc_ids": [
+            "repo:etl-spark:summary",
+            "repo:etl-spark:commits"
+          ],
+          "recall@5": 1.0,
+          "mrr": 1.0
+        },
+        {
+          "query": "distributed social inbox federation Django",
+          "expected_doc_ids": [
+            "repo:social-dist:highlight:inbox",
+            "repo:social-dist:summary"
+          ],
+          "recall@5": 1.0,
+          "mrr": 0.5
+        },
+        {
+          "query": "CLI agent resume Writer Critic tool loop",
+          "expected_doc_ids": [
+            "repo:resume-cli:highlight:agent",
+            "repo:resume-cli:summary"
+          ],
+          "recall@5": 1.0,
+          "mrr": 0.5
+        },
+        {
+          "query": "Redis cache JWT authentication FastAPI",
+          "expected_doc_ids": [
+            "repo:demo-api:summary",
+            "repo:demo-api:deps"
+          ],
+          "recall@5": 1.0,
+          "mrr": 1.0
+        },
+        {
+          "query": "helm terraform docker",
+          "expected_doc_ids": [
+            "repo:k8s-ops:deps"
+          ],
+          "recall@5": 1.0,
+          "mrr": 1.0
+        },
+        {
+          "query": "pytorch transformers fine-tuning",
+          "expected_doc_ids": [
+            "repo:ml-lab:summary",
+            "profile:tech_stack"
+          ],
+          "recall@5": 1.0,
+          "mrr": 0.5
+        }
+      ],
+      "error": null,
+      "backend": "fixture",
+      "sample_source": "fixture"
+    },
+    {
+      "name": "resume_prog",
+      "metrics": {
+        "count": 14.0,
+        "pass_rate": 1.0,
+        "passed": 14.0
+      },
+      "cases": [
+        {
+          "id": "clean_ok",
+          "ok": true,
+          "must_count": 0,
+          "must_categories": [],
+          "messages": []
+        },
+        {
+          "id": "slogan_too_short",
+          "ok": true,
+          "must_count": 2,
+          "must_categories": [
+            "style"
+          ],
+          "messages": [
+            "正文过短（约 15 字，要求 ≥80）：禁止口号式半句；按 STAR 扩成密度技术叙述（动作+技术栈；分号衔接结果），约 80–180 字。",
+            "正文过短（约 11 字，要求 ≥80）：禁止口号式半句；按 STAR 扩成密度技术叙述（动作+技术栈；分号衔接结果），约 80–180 字。"
+          ]
+        },
+        {
+          "id": "empty_evidence",
+          "ok": true,
+          "must_count": 4,
+          "must_categories": [
+            "fact",
+            "structure",
+            "style"
+          ],
+          "messages": [
+            "经历条数不足：相关较弱也至少 2 条有证据的 bullet；若确属同一功能/证据链可只保留 1 条，但须写成约 80–180 字密度 STAR，禁止口号式半句。证据不够则移出本稿。",
+            "evidence.source 为空；补仓库名与依据，或删除该条。",
+            "短标签须 4–12 字（当前约 2 字）；改成动作/模块名，勿写成整句职责。",
+            "正文过短（约 8 字，要求 ≥80）：禁止口号式半句；按 STAR 扩成密度技术叙述（动作+技术栈；分号衔接结果），约 80–180 字。"
+          ]
+        },
+        {
+          "id": "forbidden_share_wording",
+          "ok": true,
+          "must_count": 6,
+          "must_categories": [
+            "fact",
+            "structure",
+            "style"
+          ],
+          "messages": [
+            "项目名或一句话总结含禁止表述（匹配 贡献占比），改为纯产品定位。",
+            "one_liner 含职责措辞（负责/本人/实现了/独立开发/贡献）；只写产品/业务定位。",
+            "经历条数不足：相关较弱也至少 2 条有证据的 bullet；若确属同一功能/证据链可只保留 1 条，但须写成约 80–180 字密度 STAR，禁止口号式半句。证据不够则移出本稿。",
+            "短标签须 4–12 字（当前约 2 字）；改成动作/模块名，勿写成整句职责。",
+            "正文过短（约 24 字，要求 ≥80）：禁止口号式半句；按 STAR 扩成密度技术叙述（动作+技术栈；分号衔接结果），约 80–180 字。"
+          ]
+        },
+        {
+          "id": "overclaim_complete_system",
+          "ok": true,
+          "must_count": 4,
+          "must_categories": [
+            "fact",
+            "structure",
+            "style"
+          ],
+          "messages": [
+            "经历条数不足：相关较弱也至少 2 条有证据的 bullet；若确属同一功能/证据链可只保留 1 条，但须写成约 80–180 字密度 STAR，禁止口号式半句。证据不够则移出本稿。",
+            "短标签须 4–12 字（当前约 2 字）；改成动作/模块名，勿写成整句职责。",
+            "正文过短（约 51 字，要求 ≥80）：禁止口号式半句；按 STAR 扩成密度技术叙述（动作+技术栈；分号衔接结果），约 80–180 字。",
+            "表述像整站/全栈个人主导；收窄为有 evidence 的具体模块（负责 X 模块 / 实现 Y 功能），避免把他人工作算作自己的。"
+          ]
+        },
+        {
+          "id": "clean_multi_project",
+          "ok": true,
+          "must_count": 0,
+          "must_categories": [],
+          "messages": []
+        },
+        {
+          "id": "label_too_long",
+          "ok": true,
+          "must_count": 1,
+          "must_categories": [
+            "style"
+          ],
+          "messages": [
+            "短标签须 4–12 字（当前约 14 字）；改成动作/模块名，勿写成整句职责。"
+          ]
+        },
+        {
+          "id": "primary_rich_too_few_bullets",
+          "ok": true,
+          "must_count": 1,
+          "must_categories": [
+            "structure"
+          ],
+          "messages": [
+            "主项目素材充实（evidence_chains≈4）须写 4–5 条独立模块 bullet，当前 1 条；禁止把整条 pipeline 揉进一条。"
+          ]
+        },
+        {
+          "id": "repo_order_mismatch",
+          "ok": true,
+          "must_count": 1,
+          "must_categories": [
+            "ats"
+          ],
+          "messages": [
+            "项目顺序与选材仓库顺序不一致；当前 ['pdf-ui', 'social-backend']，应为 ['social-backend', 'pdf-ui'] 的相对序。"
+          ]
+        },
+        {
+          "id": "pipeline_overclaim",
+          "ok": true,
+          "must_count": 1,
+          "must_categories": [
+            "fact"
+          ],
+          "messages": [
+            "表述像整站/全栈个人主导；收窄为有 evidence 的具体模块（负责 X 模块 / 实现 Y 功能），避免把他人工作算作自己的。"
+          ]
+        },
+        {
+          "id": "clean_module_duty_ok",
+          "ok": true,
+          "must_count": 0,
+          "must_categories": [],
+          "messages": []
+        },
+        {
+          "id": "clean_dense_single_chain_ok",
+          "ok": true,
+          "must_count": 0,
+          "must_categories": [],
+          "messages": []
+        },
+        {
+          "id": "clean_label_12_ok",
+          "ok": true,
+          "must_count": 0,
+          "must_categories": [],
+          "messages": []
+        },
+        {
+          "id": "clean_two_repos_ok",
+          "ok": true,
+          "must_count": 0,
+          "must_categories": [],
+          "messages": []
+        }
+      ],
+      "error": null,
+      "backend": null,
+      "sample_source": null
+    },
+    {
+      "name": "resume_judge",
+      "metrics": {},
+      "cases": [],
+      "error": "skipped (--no-llm)",
+      "backend": null,
+      "sample_source": null
+    },
+    {
+      "name": "resume_e2e",
+      "metrics": {},
+      "cases": [],
+      "error": "skipped (--no-llm)",
+      "backend": null,
+      "sample_source": null
+    },
+    {
+      "name": "jobs_match",
+      "metrics": {
+        "count": 2.0,
+        "pass_rate": 0.5,
+        "passed": 1.0,
+        "candidate_count": 2.0,
+        "candidate_pass_rate": 1.0
+      },
+      "cases": [
+        {
+          "id": "campus_filter_social_preferred",
+          "ok": false,
+          "got_top_ids": [
+            "job-social",
+            "job-campus"
+          ],
+          "expect_top_ids": [
+            "job-social"
+          ],
+          "forbid_top_ids": [
+            "job-campus"
+          ]
+        },
+        {
+          "id": "parttime_should_be_filtered",
+          "ok": true,
+          "got_top_ids": [
+            "job-fulltime"
+          ],
+          "expect_top_ids": [
+            "job-fulltime"
+          ],
+          "forbid_top_ids": [
+            "job-parttime"
+          ]
+        },
+        {
+          "id": "detail_url_high_confidence",
+          "ok": true,
+          "got_bucket": "job_detail",
+          "got_confidence": "high",
+          "expect_bucket": "job_detail",
+          "expect_confidence": "high"
+        },
+        {
+          "id": "search_url_low_confidence",
+          "ok": true,
+          "got_bucket": "search_or_list",
+          "got_confidence": "low",
+          "expect_bucket": "search_or_list",
+          "expect_confidence": "low"
+        }
+      ],
+      "error": null,
+      "backend": null,
+      "sample_source": null
+    }
+  ]
+}

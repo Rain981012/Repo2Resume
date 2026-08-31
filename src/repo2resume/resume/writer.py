@@ -149,7 +149,123 @@ def _hit_repo(hit: SearchHit) -> str:
     repo = hit.metadata.get("repo")
     if isinstance(repo, str) and repo.strip():
         return repo.strip()
+    doc_id = hit.doc_id or ""
+    if doc_id.startswith("repo:"):
+        parts = doc_id.split(":")
+        if len(parts) >= 2 and parts[1].strip():
+            return parts[1].strip()
     return "unknown"
+
+
+def selected_repo_order(materials: list[SearchHit]) -> list[str]:
+    """选材结果里仓库首次出现的顺序（primary 在 extras 之前）。"""
+    order: list[str] = []
+    for hit in materials:
+        repo = _hit_repo(hit)
+        if repo not in order:
+            order.append(repo)
+    return order
+
+
+def estimate_repo_richness(
+    materials: list[SearchHit],
+    profile: SkillProfile | None = None,
+) -> dict[str, int]:
+    """估计每仓独立证据链条数（hit doc_id ∪ highlight claim，去重）。"""
+    chains: dict[str, set[str]] = {}
+    for hit in materials:
+        repo = _hit_repo(hit)
+        chains.setdefault(repo, set()).add(f"hit:{hit.doc_id}")
+    if profile is not None:
+        for highlight in profile.highlights_pool:
+            repo = (highlight.repo or "").strip()
+            claim = (highlight.claim or "").strip()
+            if repo and claim:
+                chains.setdefault(repo, set()).add(f"hl:{claim[:80]}")
+    return {repo: len(ids) for repo, ids in chains.items()}
+
+
+def _jd_tokens(text: str) -> set[str]:
+    tokens: set[str] = set()
+    for tok in re.findall(r"[A-Za-z][A-Za-z0-9+.#/-]*", text or ""):
+        if len(tok) >= 2:
+            tokens.add(tok.lower())
+    chars = re.findall(r"[\u4e00-\u9fff]", text or "")
+    for i in range(len(chars) - 1):
+        tokens.add(chars[i] + chars[i + 1])
+    return tokens
+
+
+def _jd_overlap_score(jd_text: str, blob: str) -> float:
+    jd_toks = _jd_tokens(jd_text)
+    if not jd_toks:
+        return 0.0
+    blob_toks = _jd_tokens(blob)
+    return len(jd_toks & blob_toks) / len(jd_toks)
+
+
+def _repo_jd_blob(
+    repo: str,
+    hit: SearchHit,
+    extras: list[SearchHit],
+    profile: SkillProfile | None,
+) -> str:
+    parts = [hit.text or ""]
+    for extra in extras:
+        if _hit_repo(extra) == repo:
+            parts.append(extra.text or "")
+    if profile is not None:
+        for one in profile.project_one_liners:
+            if one.repo == repo:
+                parts.append(one.summary or "")
+        for highlight in profile.highlights_pool:
+            if highlight.repo == repo:
+                parts.append(highlight.claim or "")
+    return "\n".join(parts)
+
+
+def pack_materials_for_writer(
+    materials: list[SearchHit],
+    profile: SkillProfile,
+    *,
+    hard_exclude: set[str] | None = None,
+    hints: dict[str, float | None] | None = None,
+) -> list[dict]:
+    """按仓打包：one_liner / highlights / 较长摘录 / evidence_chains。"""
+    excluded = hard_exclude or set()
+    order = [r for r in selected_repo_order(materials) if r not in excluded]
+    richness = estimate_repo_richness(materials, profile)
+    packed: list[dict] = []
+    for repo in order:
+        hits = [h for h in materials if _hit_repo(h) == repo]
+        excerpts = [(h.text or "")[:1200] for h in hits[:2]]
+        highlights = [
+            h.claim[:240]
+            for h in profile.highlights_pool
+            if h.repo == repo and (h.claim or "").strip()
+        ][:8]
+        one_liner = next(
+            (x.summary for x in profile.project_one_liners if x.repo == repo),
+            "",
+        )
+        share = hints.get(repo) if hints else None
+        if repo in (hints or {}) and hints is not None:
+            note = (
+                f"low_author_share={share}" if share is not None else "low_author_share=flagged"
+            )
+        else:
+            note = "author_filtered_commits"
+        packed.append(
+            {
+                "repo": repo,
+                "one_liner": one_liner,
+                "evidence_chains": richness.get(repo, 1),
+                "highlights": highlights,
+                "excerpts": excerpts,
+                "authorship": note,
+            }
+        )
+    return packed
 
 
 def select_materials(
@@ -158,17 +274,18 @@ def select_materials(
     hits: list[SearchHit],
     profile: SkillProfile | None = None,
     max_projects: int = 4,
+    preserve_hit_order: bool = False,
 ) -> list[SearchHit]:
     """按仓库去重并保留高分命中，限制项目数。
 
     默认剔除 author_share 极低的仓；其余低贡献仓排序靠后，减少误把他人工作写成主导。
+    preserve_hit_order=True 时尊重传入顺序（精排结果），不再按 JD 词重叠重排。
     """
     from repo2resume.analysis.fact_sheet import (
         RESUME_EXCLUDE_SHARE_BELOW,
         authorship_hints_from_profile,
     )
 
-    _ = jd_text
     if max_projects <= 0 or not hits:
         return []
 
@@ -190,20 +307,30 @@ def select_materials(
     work = filtered if filtered else list(hits)
     low_repos = soft_low if filtered else (soft_low | hard_exclude)
 
+    ordered = work if preserve_hit_order else sorted(work, key=lambda h: h.score, reverse=True)
     best_by_repo: dict[str, SearchHit] = {}
     extras: list[SearchHit] = []
-    for hit in sorted(work, key=lambda h: h.score, reverse=True):
+    seen: list[str] = []
+    for hit in ordered:
         repo = _hit_repo(hit)
         if repo not in best_by_repo:
             best_by_repo[repo] = hit
+            seen.append(repo)
         else:
             extras.append(hit)
 
-    # 高贡献仓优先，再按原分数顺序
-    repos_ranked = sorted(
-        best_by_repo.keys(),
-        key=lambda r: (r in low_repos, -best_by_repo[r].score),
-    )
+    if preserve_hit_order:
+        repos_ranked = sorted(seen, key=lambda r: (r in low_repos, seen.index(r)))
+    else:
+        overlap = {
+            repo: _jd_overlap_score(jd_text, _repo_jd_blob(repo, hit, extras, profile))
+            for repo, hit in best_by_repo.items()
+        }
+        # 低贡献靠后；同档按 JD 词重叠，再按检索分
+        repos_ranked = sorted(
+            best_by_repo.keys(),
+            key=lambda r: (r in low_repos, -overlap[r], -best_by_repo[r].score),
+        )
     selected_repos = repos_ranked[:max_projects]
     selected_set = set(selected_repos)
     primary = [best_by_repo[r] for r in selected_repos]
@@ -222,6 +349,7 @@ def write_experience(
     job_id: str | None = None,
     job_title: str | None = None,
     max_retries: int = 1,
+    use_cache: bool | None = None,
 ) -> ResumeDraft:
     """调用 LLM 生成 ResumeDraft；校验失败则把错误回传重试。"""
     from repo2resume.agent.progress import emit_progress
@@ -248,24 +376,12 @@ def write_experience(
         if share is not None and share < RESUME_EXCLUDE_SHARE_BELOW
     }
 
-    materials_payload = []
-    for h in materials[:12]:
-        repo = _hit_repo(h)
-        if repo in hard_exclude:
-            continue
-        note = None
-        if repo in hints:
-            share = hints[repo]
-            note = f"low_author_share={share}" if share is not None else "low_author_share=flagged"
-        materials_payload.append(
-            {
-                "doc_id": h.doc_id,
-                "text": (h.text or "")[:500],
-                "score": h.score,
-                "repo": repo,
-                "authorship": note or "author_filtered_commits",
-            }
-        )
+    materials_payload = pack_materials_for_writer(
+        materials,
+        profile,
+        hard_exclude=hard_exclude,
+        hints=hints,
+    )
     profile_slim = {
         "primary_direction": profile.primary_direction,
         "secondary_directions": profile.secondary_directions[:5],
@@ -299,6 +415,9 @@ def write_experience(
             "content": (
                 "根据 system 中的 JD / 素材 / 画像 / 事实清单，输出项目经历 JSON。"
                 "只输出 JSON 对象，不要 Markdown。"
+                "projects 顺序必须等于素材仓库顺序；"
+                "rank 0 且 evidence_chains≥4 时写 4–5 条独立模块，"
+                "禁止抄 few-shot 的单条形态。"
                 "严格只写本人提交能支撑的模块级贡献；caution 里的低贡献仓不得写成整站主导。"
             ),
         },
@@ -306,18 +425,24 @@ def write_experience(
 
     writer_model = None
     cfg = getattr(llm, "_config", None)
-    if cfg is not None and cfg.writer_model:
-        writer_model = cfg.writer_model
+    if cfg is not None:
+        writer_model = cfg.complete_model("writer")
+    writer_shown = writer_model or (cfg.llm_model if cfg is not None else "default")
 
     last_error: str | None = None
     for attempt in range(max_retries + 1):
-        emit_progress(f"Writer：LLM 起草（第 {attempt + 1}/{max_retries + 1} 次，最长约 3 分钟）…")
+        emit_progress(
+            f"Writer：用 {writer_shown} 起草"
+            f"（第 {attempt + 1}/{max_retries + 1} 次，最长约 3 分钟）…"
+        )
+        cache_hit = (attempt == 0) if use_cache is None else use_cache
         result = llm.complete(
             messages,
             model=writer_model,
             temperature=0.2,
-            use_cache=attempt == 0,
+            use_cache=cache_hit,
             timeout_s=180.0,
+            role="writer",
         )
         try:
             payload = _extract_json(result.content)
