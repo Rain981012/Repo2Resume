@@ -28,7 +28,12 @@ CAMPUS_TEXT = (
 
 
 def _job(**kw) -> Job:
-    base = {"id": "j1", "title": "后端开发", "source": "tavily", "url": "https://www.liepin.com/job/1.shtml"}
+    base = {
+        "id": "j1",
+        "title": "后端开发",
+        "source": "tavily",
+        "url": "https://www.liepin.com/job/1.shtml",
+    }
     return Job(**{**base, **kw})
 
 
@@ -122,9 +127,7 @@ class TestCampusSources:
         assert site_label("https://www.shixiseng.com/intern/x") == "实习僧"
 
     def test_campus_prefs_add_official_site_queries(self) -> None:
-        prefs = JobSearchPrefs(
-            confirmed_directions=["后端开发工程师"], is_campus=True, city="深圳"
-        )
+        prefs = JobSearchPrefs(confirmed_directions=["后端开发工程师"], is_campus=True, city="深圳")
         queries = _build_search_queries(prefs, limit=None)
         joined = " | ".join(queries)
         assert "site:jobs.bytedance.com/campus" in joined

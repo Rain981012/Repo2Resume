@@ -151,7 +151,7 @@ def programmatic_checks(
                     target="全稿",
                     message=(
                         "项目顺序与选材仓库顺序不一致；"
-                        f"当前 {[ _project_source(p) or p.project_name for p in draft.projects ]}，"
+                        f"当前 {[_project_source(p) or p.project_name for p in draft.projects]}，"
                         f"应为 {list(expected_repo_order)} 的相对序。"
                     ),
                 )
@@ -379,9 +379,7 @@ def critique(
 ) -> CritiqueReport:
     """先程序化硬过滤，再 LLM 审稿；合并为 CritiqueReport。"""
     _ = profile
-    hard = programmatic_checks(
-        draft, richness=richness, expected_repo_order=expected_repo_order
-    )
+    hard = programmatic_checks(draft, richness=richness, expected_repo_order=expected_repo_order)
     env = Environment(
         loader=FileSystemLoader(str(PROMPTS_DIR)),
         autoescape=select_autoescape(enabled_extensions=()),

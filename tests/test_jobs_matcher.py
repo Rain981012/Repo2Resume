@@ -663,9 +663,7 @@ def test_batch_prompt_carries_prefs() -> None:
     llm.config = None
     job = Job(id="j1", title="Python 后端", jd_text="Python FastAPI", source="tavily")
 
-    _llm_score_jobs_batch(
-        llm, [job], "画像", prefs_text=_prefs_block("上海", "20-30k", True)
-    )
+    _llm_score_jobs_batch(llm, [job], "画像", prefs_text=_prefs_block("上海", "20-30k", True))
     prompt = llm.complete.call_args.kwargs["messages"][0]["content"]
     assert "20-30k" in prompt
     assert "上海" in prompt

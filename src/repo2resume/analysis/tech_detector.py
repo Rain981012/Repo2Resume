@@ -168,7 +168,11 @@ def collect_dependencies(repo: Path) -> dict[str, list[str]]:
             found[key] = sorted(set(deps))[:80]
 
     # docker-compose*.yml / *.yaml（提取 image / service 关键词）
-    for compose in sorted(repo.glob("docker-compose*.yml")) + sorted(repo.glob("docker-compose*.yaml")):
+    compose_files = sorted(repo.glob("docker-compose*.yml")) + sorted(
+        repo.glob("docker-compose*.yaml")
+    )
+    compose_tokens = ("redis", "rabbitmq", "postgres", "mysql", "nginx", "celery")
+    for compose in compose_files:
         text = compose.read_text(errors="ignore")
         deps: list[str] = []
         for line in text.splitlines():
@@ -178,8 +182,8 @@ def collect_dependencies(repo: Path) -> dict[str, list[str]]:
                 image = raw.split(":", 1)[1].strip().strip("'\"")
                 if image:
                     deps.append(image.split("/")[-1].split(":")[0])
-            if any(tok in low for tok in ("redis", "rabbitmq", "postgres", "mysql", "nginx", "celery")):
-                for tok in ("redis", "rabbitmq", "postgres", "mysql", "nginx", "celery"):
+            if any(tok in low for tok in compose_tokens):
+                for tok in compose_tokens:
                     if tok in low:
                         deps.append(tok)
         if deps:

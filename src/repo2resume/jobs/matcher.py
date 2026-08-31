@@ -57,12 +57,8 @@ _PARTTIME_MARKERS = ("兼职", "part-time", "part time")
 _INTERN_MARKERS = ("实习", "intern", "校招")
 _CAMPUS_TRUE_MARKERS = ("校招", "应届", "2026届", "2027届", "27届", "26届", "毕业生")
 _CAMPUS_FALSE_MARKERS = ("社招", "社会招聘")
-_SENIOR_YEARS_RANGE_RE = re.compile(
-    r"(?<!\d)(\d{1,2})\s*[-~～到至]\s*(\d{1,2})\s*年"
-)
-_SENIOR_YEARS_SINGLE_RE = re.compile(
-    r"(?<!\d)([3-9]|[1-9]\d)\s*年(?:以上|经验)"
-)
+_SENIOR_YEARS_RANGE_RE = re.compile(r"(?<!\d)(\d{1,2})\s*[-~～到至]\s*(\d{1,2})\s*年")
+_SENIOR_YEARS_SINGLE_RE = re.compile(r"(?<!\d)([3-9]|[1-9]\d)\s*年(?:以上|经验)")
 _CAMPUS_SENIOR_TITLE = ("资深", "专家", "架构师", "staff", "principal", "fellow")
 _DEV_DIRECTION_MARKERS = ("后端", "全栈", "开发", "backend", "fullstack", "frontend", "前端")
 _RESEARCH_TITLE_MARKERS = ("研究", "科学家", "阿里星", "博士", "scientist", "research", "phd")
@@ -636,9 +632,7 @@ def _heuristic_analysis(
     direction = (profile.primary_direction or "").strip() or "当前方向"
     if overlap:
         match = (
-            f"岗位「{title}」对照主方向「{direction}」，能对上："
-            + "、".join(overlap[:6])
-            + "。"
+            f"岗位「{title}」对照主方向「{direction}」，能对上：" + "、".join(overlap[:6]) + "。"
         )
     else:
         match = f"岗位「{title}」对照主方向「{direction}」，摘要里几乎抽不到重合技能词。"
@@ -678,9 +672,7 @@ def _heuristic_reason(
     vector_score: float,
 ) -> str:
     """LLM 没给理由时，用四段分析拼一段可读说明。"""
-    a = _heuristic_analysis(
-        profile, job, skill_score=skill_score, vector_score=vector_score
-    )
+    a = _heuristic_analysis(profile, job, skill_score=skill_score, vector_score=vector_score)
     return "".join(a[k] for k in ("match", "preference", "salary", "gaps"))
 
 
@@ -782,9 +774,7 @@ class JobMatcher:
         eligible_jobs = [
             j
             for j in jobs
-            if _is_job_eligible(
-                j, city=city, is_campus=is_campus, enforce_campus=enforce_campus
-            )
+            if _is_job_eligible(j, city=city, is_campus=is_campus, enforce_campus=enforce_campus)
         ]
         if not eligible_jobs:
             return []
@@ -818,15 +808,11 @@ class JobMatcher:
             if missing and llm_scores:
                 emit_progress(f"补打 {len(missing)} 条漏评职位…")
                 llm_scores.update(
-                    _llm_score_jobs_batch(
-                        self.llm, missing, profile_text, prefs_text=prefs_text
-                    )
+                    _llm_score_jobs_batch(self.llm, missing, profile_text, prefs_text=prefs_text)
                 )
             still_missing = [j.id for j in llm_jobs if j.id not in llm_scores]
             if still_missing:
-                emit_progress(
-                    f"仍有 {len(still_missing)} 条未拿到 LLM 分，改用技能/语义说明"
-                )
+                emit_progress(f"仍有 {len(still_missing)} 条未拿到 LLM 分，改用技能/语义说明")
             elif not llm_scores:
                 emit_progress("LLM 打分超时/失败，改用技能与语义说明…")
 
@@ -850,10 +836,15 @@ class JobMatcher:
             )
             overall = blend_with_site(overall, job.url, title=job.title)
             sk = _skill_overlap(profile_tokens, _job_skill_tokens(job))
-            if llm_out is None or not reason.strip() or reason in {
-                "LLM 已评分",
-                "按粗排分数排序（LLM 未得分）",
-            }:
+            if (
+                llm_out is None
+                or not reason.strip()
+                or reason
+                in {
+                    "LLM 已评分",
+                    "按粗排分数排序（LLM 未得分）",
+                }
+            ):
                 analysis = _heuristic_analysis(
                     profile,
                     job,

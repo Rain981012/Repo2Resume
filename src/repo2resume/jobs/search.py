@@ -52,6 +52,7 @@ def _db_guard(db: Database | None) -> AbstractContextManager[Any]:
     """直接操作 `db.conn` 的代码块必须持有 Database 自己的锁。"""
     return _NO_DB_LOCK if db is None else db.lock
 
+
 _DEFAULT_MOCK_JOBS: list[dict[str, Any]] = [
     {
         "id": "mock-backend-1",
@@ -172,6 +173,7 @@ def _job_search_window() -> tuple[str, str]:
     end = datetime.now(UTC).date()
     start = end - timedelta(days=JOB_SEARCH_LOOKBACK_DAYS)
     return start.isoformat(), end.isoformat()
+
 
 # 大厂校招官网。这些站基本不设人机验证，判活和详情解析都比 Boss/智联顺利。
 _CAMPUS_DOMAINS = official_domains()
@@ -326,8 +328,10 @@ def _estimate_completeness(jd_text: str, *, confidence: str, url: str | None = N
 def _job_to_candidate(job: Job, *, run_id: str, query: str) -> JobCandidate:
     bucket, conf = _classify_url_confidence(job.url)
     discovered_at = job.discovered_at or _now_iso()
+    live_statuses = {"live", "offline", "blocked"}
+    status = job.verification_status if job.verification_status in live_statuses else "unverified"
     verification = JobVerification(
-        status=job.verification_status if job.verification_status in {"live", "offline", "blocked"} else "unverified",
+        status=status,
         method="search_snippet" if is_boss_url(job.url) else "url_classifier",
         checked_at=job.last_verified_at,
     )
@@ -721,9 +725,7 @@ def _normalize_job_url(url: str) -> str:
     return u
 
 
-_EMPTY_JOB_ID_RE = re.compile(
-    r"(?:postid|pid|positionid|jobunionid|id)=(?:&|$)", re.I
-)
+_EMPTY_JOB_ID_RE = re.compile(r"(?:postid|pid|positionid|jobunionid|id)=(?:&|$)", re.I)
 
 
 def _is_job_detail_url(url: str) -> bool:
@@ -924,7 +926,7 @@ def _extract_bocha_pages(data: Any) -> list[dict[str, Any]]:
 
 def _top_md5_sign(params: dict[str, str], app_secret: str) -> str:
     joined = "".join(f"{k}{v}" for k, v in sorted(params.items()))
-    raw = f"{app_secret}{joined}{app_secret}".encode("utf-8")
+    raw = f"{app_secret}{joined}{app_secret}".encode()
     return hashlib.md5(raw).hexdigest().upper()
 
 
@@ -1016,10 +1018,7 @@ class AlibabaTopSource:
             jobs: list[Job] = []
             for pos in positions[: max(count * 2, count)]:
                 code = str(
-                    pos.get("code")
-                    or pos.get("position_code")
-                    or pos.get("positionCode")
-                    or ""
+                    pos.get("code") or pos.get("position_code") or pos.get("positionCode") or ""
                 ).strip()
                 title = str(pos.get("name") or pos.get("title") or "").strip()
                 desc = str(pos.get("description") or pos.get("job_desc") or "").strip()
@@ -1028,7 +1027,11 @@ class AlibabaTopSource:
                 jd = "\n".join(x for x in (desc, req) if x)
                 if not code and not title:
                     continue
-                url = f"https://talent.alibaba.com/position/detail?positionCode={code}" if code else None
+                url = (
+                    f"https://talent.alibaba.com/position/detail?positionCode={code}"
+                    if code
+                    else None
+                )
                 job = _web_hit_to_job(
                     title=title or "阿里岗位",
                     url=url or "",

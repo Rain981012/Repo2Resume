@@ -19,8 +19,8 @@ from repo2resume.evals.runner import (
     DEFAULT_DATASETS_DIR,
     DEFAULT_RESULTS_DIR,
     HashTokenEmbedder,
-    make_hybrid_search_fn,
     _load_json,
+    make_hybrid_search_fn,
 )
 from repo2resume.storage.models import SearchHit
 
@@ -36,7 +36,9 @@ def _p95(values: list[float]) -> float:
     return float(ordered[idx])
 
 
-def _metrics(hits_by_query: list[list[SearchHit]], queries: list[dict[str, Any]]) -> dict[str, float]:
+def _metrics(
+    hits_by_query: list[list[SearchHit]], queries: list[dict[str, Any]]
+) -> dict[str, float]:
     recalls: list[float] = []
     mrrs: list[float] = []
     for hits, q in zip(hits_by_query, queries, strict=True):

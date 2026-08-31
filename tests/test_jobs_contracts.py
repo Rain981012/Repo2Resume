@@ -66,7 +66,17 @@ def test_jobs_cli_output_contract(data_dir: Path, monkeypatch) -> None:
     output = Path(cfg.data_dir) / "jobs_contract.json"
     result = runner.invoke(
         app,
-        ["jobs", "--query", "Python 后端", "--count", "1", "--source", "mock", "--output", str(output)],
+        [
+            "jobs",
+            "--query",
+            "Python 后端",
+            "--count",
+            "1",
+            "--source",
+            "mock",
+            "--output",
+            str(output),
+        ],
     )
     assert result.exit_code == 0, result.stdout + getattr(result, "stderr", "")
     data = json.loads(output.read_text(encoding="utf-8"))

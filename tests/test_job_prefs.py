@@ -635,9 +635,7 @@ def test_dedupe_key_collapses_punctuation_variants() -> None:
 def test_preference_line_drops_redundant_llm_clauses() -> None:
     from repo2resume.agent.builtins import _preference_line
 
-    prefs = JobSearchPrefs(
-        confirmed_directions=["Python 后端"], city="上海,深圳", is_campus=True
-    )
+    prefs = JobSearchPrefs(confirmed_directions=["Python 后端"], city="上海,深圳", is_campus=True)
     job = Job(id="j1", title="Python开发工程师", location="深圳", source="tavily")
     line = _preference_line(
         job,
@@ -655,9 +653,7 @@ def test_preference_line_drops_redundant_llm_clauses() -> None:
 def test_preference_line_flags_campus_conflict() -> None:
     from repo2resume.agent.builtins import _preference_line
 
-    prefs = JobSearchPrefs(
-        confirmed_directions=["Python 后端"], city="广州", is_campus=True
-    )
+    prefs = JobSearchPrefs(confirmed_directions=["Python 后端"], city="广州", is_campus=True)
     senior = Job(
         id="j2",
         title="高级后端架构师",

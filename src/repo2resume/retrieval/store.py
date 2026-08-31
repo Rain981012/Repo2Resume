@@ -223,8 +223,7 @@ class VectorStore:
         if not safe_query:
             return []
         rows = self.db.conn.execute(
-            "SELECT doc_id, text, rank FROM fts_documents WHERE text MATCH ? "
-            "ORDER BY rank LIMIT ?",
+            "SELECT doc_id, text, rank FROM fts_documents WHERE text MATCH ? ORDER BY rank LIMIT ?",
             (safe_query, top_k),
         ).fetchall()
         hits: list[SearchHit] = []

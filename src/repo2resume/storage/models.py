@@ -391,8 +391,12 @@ def candidate_to_job_projection(candidate: JobCandidate) -> Job:
     return Job(
         id=candidate.candidate_id,
         title=candidate.discovery.title,
-        company=(candidate.metadata.get("company") if isinstance(candidate.metadata, dict) else None),
-        location=(candidate.metadata.get("location") if isinstance(candidate.metadata, dict) else None),
+        company=(
+            candidate.metadata.get("company") if isinstance(candidate.metadata, dict) else None
+        ),
+        location=(
+            candidate.metadata.get("location") if isinstance(candidate.metadata, dict) else None
+        ),
         jd_text=candidate.content.jd_text,
         skills=list(candidate.metadata.get("skills") or [])
         if isinstance(candidate.metadata, dict)

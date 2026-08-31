@@ -3,7 +3,7 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
-from repo2resume.storage.db import SCHEMA_VERSION, Database, MIGRATIONS, open_db
+from repo2resume.storage.db import MIGRATIONS, SCHEMA_VERSION, Database, open_db
 from repo2resume.storage.models import (
     JobCandidate,
     JobContent,
@@ -47,9 +47,9 @@ def test_migrate_is_idempotent(tmp_path: Path) -> None:
 
 def test_fts_documents_uses_trigram(tmp_path: Path) -> None:
     db = open_db(tmp_path / "repo2resume.db")
-    sql = db.conn.execute(
-        "SELECT sql FROM sqlite_master WHERE name = 'fts_documents'"
-    ).fetchone()[0]
+    sql = db.conn.execute("SELECT sql FROM sqlite_master WHERE name = 'fts_documents'").fetchone()[
+        0
+    ]
     assert "trigram" in sql.lower()
     db.close()
 
@@ -68,13 +68,11 @@ def test_v7_migration_preserves_fts_rows(tmp_path: Path) -> None:
     conn.close()
 
     db = Database(path)
-    row = db.conn.execute(
-        "SELECT doc_id FROM fts_documents WHERE doc_id = 'keep-me'"
-    ).fetchone()
+    row = db.conn.execute("SELECT doc_id FROM fts_documents WHERE doc_id = 'keep-me'").fetchone()
     assert row is not None
-    sql = db.conn.execute(
-        "SELECT sql FROM sqlite_master WHERE name = 'fts_documents'"
-    ).fetchone()[0]
+    sql = db.conn.execute("SELECT sql FROM sqlite_master WHERE name = 'fts_documents'").fetchone()[
+        0
+    ]
     assert "trigram" in sql.lower()
     db.close()
 

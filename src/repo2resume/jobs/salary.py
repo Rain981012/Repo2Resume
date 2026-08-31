@@ -10,9 +10,7 @@ _SEP = r"[-~～到至]"
 _NUM = r"\d+(?:\.\d+)?"
 
 # 带单位：20-30k / 1.5-2万 / 8-12千
-_SALARY_UNIT_RE = re.compile(
-    rf"(?P<lo>{_NUM})\s*{_SEP}\s*(?P<hi>{_NUM})\s*(?P<unit>[kK]|万|千)"
-)
+_SALARY_UNIT_RE = re.compile(rf"(?P<lo>{_NUM})\s*{_SEP}\s*(?P<hi>{_NUM})\s*(?P<unit>[kK]|万|千)")
 # 元为单位：20000-30000元
 _SALARY_YUAN_RE = re.compile(rf"(?P<lo>\d{{4,6}})\s*{_SEP}\s*(?P<hi>\d{{4,6}})\s*元")
 # 薪资关键词紧邻的裸数字：薪资 20-30

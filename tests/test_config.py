@@ -95,9 +95,7 @@ def test_subagent_return_after_tools_from_toml_and_env(
     assert overridden.subagent_return_after_tools is False
 
 
-def test_langsmith_toml_exports_env(
-    data_dir: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_langsmith_toml_exports_env(data_dir: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("LANGSMITH_API_KEY", raising=False)
     monkeypatch.delenv("LANGSMITH_PROJECT", raising=False)
     monkeypatch.delenv("LANGSMITH_TRACING", raising=False)
@@ -140,9 +138,7 @@ def test_resume_reranker_defaults_off(data_dir: Path) -> None:
     assert load_config(data_dir).resume_reranker == "off"
 
 
-def test_resume_reranker_from_toml_and_env(
-    data_dir: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_resume_reranker_from_toml_and_env(data_dir: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     save_config(AppConfig(data_dir=data_dir, resume_reranker="llm"))
     loaded = load_config(data_dir)
     assert loaded.resume_reranker == "llm"

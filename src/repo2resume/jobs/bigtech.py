@@ -177,6 +177,7 @@ DEFAULT_BIG_TECH: tuple[str, ...] = tuple(dict.fromkeys(f.name for f in BIG_TECH
 def tavily_searchable_firms() -> tuple[BigTechFirm, ...]:
     return tuple(f for f in BIG_TECH if f.tavily_indexed)
 
+
 _CAMPUS_ONLY_HOSTS = {
     "join.qq.com",
     "campushr.hikvision.com",

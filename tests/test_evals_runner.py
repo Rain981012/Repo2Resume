@@ -205,9 +205,7 @@ def test_resume_e2e_grounded_playback_passes_prog() -> None:
             for row in rows:
                 jd = str(row.get("jd_text") or "")
                 if jd and jd[:24] in text:
-                    return SimpleNamespace(
-                        content=grounded_draft_from_case(row).model_dump_json()
-                    )
+                    return SimpleNamespace(content=grounded_draft_from_case(row).model_dump_json())
             return SimpleNamespace(content=grounded_draft_from_case(rows[0]).model_dump_json())
 
     result = run_resume_e2e_suite(llm=Playback(), run_judge=False)
@@ -267,7 +265,5 @@ def test_resume_e2e_missing_evidence_drops_prog() -> None:
 
 def test_writer_prompt_still_requires_evidence() -> None:
     root = Path(__file__).resolve().parents[1]
-    text = (root / "src/repo2resume/prompts/resume/write_experience.j2").read_text(
-        encoding="utf-8"
-    )
+    text = (root / "src/repo2resume/prompts/resume/write_experience.j2").read_text(encoding="utf-8")
     assert "每条 bullet 必须带 `evidence`" in text

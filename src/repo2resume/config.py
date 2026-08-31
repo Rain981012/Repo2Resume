@@ -186,12 +186,8 @@ def load_config(data_dir: Path | None = None) -> AppConfig:
         or os.environ.get("LIEPIN_USER_TOKEN")
         or None,
         liepin_mcp_url=pick("liepin_mcp_url", "LIEPIN_MCP_URL"),
-        langsmith_api_key=env_ls_key
-        or pick("langsmith_api_key", "LANGSMITH_API_KEY")
-        or None,
-        langsmith_project=env_ls_project
-        or pick("langsmith_project", "LANGSMITH_PROJECT")
-        or None,
+        langsmith_api_key=env_ls_key or pick("langsmith_api_key", "LANGSMITH_API_KEY") or None,
+        langsmith_project=env_ls_project or pick("langsmith_project", "LANGSMITH_PROJECT") or None,
         langsmith_tracing=_as_bool(tracing_raw, True),
         llm_timeout_s=float(timeout),
         llm_max_retries=int(retries),

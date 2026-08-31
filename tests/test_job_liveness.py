@@ -51,9 +51,7 @@ def test_probe_boss_security_interstitial_is_blocked() -> None:
     resp.url = "https://www.zhipin.com/web/passport/zp/security.html?seed=1"
     resp.text = "<title>请稍候 - BOSS直聘</title>"
     client.get.return_value = resp
-    assert (
-        probe_listing("https://www.zhipin.com/job_detail/x", client=client) == "blocked"
-    )
+    assert probe_listing("https://www.zhipin.com/job_detail/x", client=client) == "blocked"
 
 
 def test_probe_detail_redirect_to_listing_marks_offline() -> None:
@@ -137,7 +135,7 @@ def test_probe_zhaopin_security_interstitial_is_blocked() -> None:
     resp.status_code = 200
     resp.url = "https://www.zhaopin.com/jobdetail/CC229685980J40778543205.htm"
     resp.text = (
-        "<!doctype html><html lang=\"en\"><title>Security Verification</title>"
+        '<!doctype html><html lang="en"><title>Security Verification</title>'
         "<body>Please wait</body></html>"
     )
     client.get.return_value = resp

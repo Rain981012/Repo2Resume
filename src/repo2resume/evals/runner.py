@@ -584,9 +584,8 @@ def run_jobs_match_suite(*, data_dir: Path | None = None) -> SuiteResult:
             cpass = 0
             for crow in crows:
                 bucket, conf = _classify_url_confidence(str(crow.get("url") or ""))
-                ok = (
-                    bucket == crow.get("expected_bucket")
-                    and conf == crow.get("expected_confidence")
+                ok = bucket == crow.get("expected_bucket") and conf == crow.get(
+                    "expected_confidence"
                 )
                 cpass += 1 if ok else 0
                 cases.append(
@@ -624,9 +623,7 @@ def run_all(
     wanted = list(suites or ALL_SUITES)
     results: list[SuiteResult] = []
     if SUITE_RETRIEVAL in wanted:
-        results.append(
-            run_retrieval_suite(data_dir=data_dir, search_backend=search_backend)
-        )
+        results.append(run_retrieval_suite(data_dir=data_dir, search_backend=search_backend))
     if SUITE_RESUME_PROG in wanted:
         results.append(run_resume_programmatic_suite(data_dir=data_dir))
     if SUITE_RESUME_JUDGE in wanted:

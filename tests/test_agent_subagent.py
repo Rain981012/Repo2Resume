@@ -324,9 +324,7 @@ def test_repo_analyst_summary_keeps_completion_marker() -> None:
     def llm(messages, tools):
         calls["n"] += 1
         if calls["n"] == 1:
-            return LLMResponse(
-                tool_calls=[ToolCall(id="c1", name="analyze_repo", arguments={})]
-            )
+            return LLMResponse(tool_calls=[ToolCall(id="c1", name="analyze_repo", arguments={})])
         return LLMResponse(content="## 分析结果\n仓库 5 个")
 
     runner = SubAgentRunner(spec, llm=llm)
@@ -350,9 +348,7 @@ def test_return_after_tools_false_with_repeat_limit_1_false_stuck() -> None:
     )
 
     def llm(messages, tools):
-        return LLMResponse(
-            tool_calls=[ToolCall(id="c1", name="echo", arguments={"text": "x"})]
-        )
+        return LLMResponse(tool_calls=[ToolCall(id="c1", name="echo", arguments={"text": "x"})])
 
     runner = SubAgentRunner(spec, llm=llm)
     out = runner.run("go")
@@ -377,9 +373,7 @@ def test_subagent_tool_hooks_record_inner_tools(tmp_path) -> None:
     )
 
     def llm(messages, tools):
-        return LLMResponse(
-            tool_calls=[ToolCall(id="c1", name="echo", arguments={"text": "ping"})]
-        )
+        return LLMResponse(tool_calls=[ToolCall(id="c1", name="echo", arguments={"text": "ping"})])
 
     db = open_db(tmp_path / "sub.db")
     hook = TraceHook(db, session_id="sess-sub")
@@ -389,5 +383,3 @@ def test_subagent_tool_hooks_record_inner_tools(tmp_path) -> None:
         "SELECT tool_name FROM tool_traces WHERE session_id='sess-sub'"
     ).fetchall()
     assert [r[0] for r in rows] == ["echo"]
-
-

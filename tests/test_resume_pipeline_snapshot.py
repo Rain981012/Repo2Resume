@@ -83,9 +83,7 @@ def test_apply_resume_rerank_cross_encoder(monkeypatch) -> None:
         lambda: _Fake(),
     )
     hits = [_hit("a"), _hit("b"), _hit("c")]
-    out, mode = apply_resume_rerank(
-        hits, "jd", mode="cross_encoder", llm=MagicMock(), top_k=2
-    )
+    out, mode = apply_resume_rerank(hits, "jd", mode="cross_encoder", llm=MagicMock(), top_k=2)
     assert mode == "cross_encoder"
     assert [h.doc_id for h in out] == ["c", "b"]
 
@@ -100,8 +98,6 @@ def test_apply_resume_rerank_falls_back_on_error(monkeypatch) -> None:
         lambda: _Boom(),
     )
     hits = [_hit("a"), _hit("b")]
-    out, mode = apply_resume_rerank(
-        hits, "jd", mode="cross_encoder", llm=MagicMock(), top_k=5
-    )
+    out, mode = apply_resume_rerank(hits, "jd", mode="cross_encoder", llm=MagicMock(), top_k=5)
     assert mode == "hybrid_fallback"
     assert [h.doc_id for h in out] == ["a", "b"]

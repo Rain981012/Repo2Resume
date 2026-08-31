@@ -46,9 +46,7 @@ def test_senior_years_job_not_filtered_by_salary() -> None:
     from repo2resume.agent.builtins import _hard_eligible
     from repo2resume.storage.models import Job, JobSearchPrefs
 
-    prefs = JobSearchPrefs(
-        confirmed_directions=["Python 后端"], city="上海", salary_range="20-30k"
-    )
+    prefs = JobSearchPrefs(confirmed_directions=["Python 后端"], city="上海", salary_range="20-30k")
     job = Job(
         id="j1",
         title="全栈开发工程师",

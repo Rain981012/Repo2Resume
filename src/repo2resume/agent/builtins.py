@@ -194,11 +194,7 @@ def _format_direction_block(profile: SkillProfile) -> str:
         "## 方向（请用户确认后再 set_job_prefs）",
         f"primary: {profile.primary_direction}",
         "secondary: "
-        + (
-            ", ".join(profile.secondary_directions)
-            if profile.secondary_directions
-            else "（无）"
-        ),
+        + (", ".join(profile.secondary_directions) if profile.secondary_directions else "（无）"),
         "候选职位类型:",
     ]
     suggestions = profile.job_direction_suggestions[:8]
@@ -448,11 +444,7 @@ def make_set_job_prefs_tool(db: Database | None) -> Tool:
 
         # 与已有偏好合并，避免「只补校招」时把 city/salary 冲掉导致反复 set_job_prefs 卡死
         existing = db.load_job_search_prefs()
-        base = (
-            existing
-            if isinstance(existing, JobSearchPrefs)
-            else JobSearchPrefs()
-        )
+        base = existing if isinstance(existing, JobSearchPrefs) else JobSearchPrefs()
         dirs = list(confirmed_directions or [])
         if not dirs:
             dirs = list(base.confirmed_directions)
@@ -520,9 +512,7 @@ class SearchJobsParams(BaseModel):
 
     query: str = Field(
         default="",
-        description=(
-            "可选覆盖关键词。留空则用 set_job_prefs 的 confirmed_directions。"
-        ),
+        description=("可选覆盖关键词。留空则用 set_job_prefs 的 confirmed_directions。"),
     )
     top_n: int | None = Field(
         default=None,
@@ -640,6 +630,7 @@ def _apply_job_detail(job: Any, html: str) -> bool:
 
 def _dedupe_key(job: Any) -> tuple[str, str]:
     """标题+公司去重键；忽略空白与标点差异。"""
+
     def _norm(s: str) -> str:
         return re.sub(r"[\s\-_()（）【】\[\]，,。.、/·!！]", "", (s or "").lower())
 
@@ -809,8 +800,7 @@ def _format_job_card(
     )
     lower_link = link.lower()
     if not any(
-        token in lower_link
-        for token in ("job_detail", "jobdetail", "/job/", "jobs.zhaopin.com")
+        token in lower_link for token in ("job_detail", "jobdetail", "/job/", "jobs.zhaopin.com")
     ):
         rows.append("   依据：搜索摘要评分（未打开详情页）")
     rows.append(f"   职位编号：{job_id}")
@@ -1034,9 +1024,7 @@ def make_search_jobs_tool(
             per_query = max(8, (remain + n_q - 1) // n_q)
 
             def _search_one(q: str) -> tuple[str, list[Any]]:
-                return q, search_jobs(
-                    q, count=per_query, config=config, db=db, source=requested
-                )
+                return q, search_jobs(q, count=per_query, config=config, db=db, source=requested)
 
             found: list[Any] = []
             workers = min(4, len(batch_queries)) or 1
@@ -1086,8 +1074,7 @@ def make_search_jobs_tool(
             kept, n_dead = keep_open_jobs(
                 to_check,
                 on_drop=lambda j, st="offline": emit_progress(
-                    f"{'验证页' if st == 'blocked' else '已下线'}，跳过："
-                    f"{(j.title or '')[:40]}"
+                    f"{'验证页' if st == 'blocked' else '已下线'}，跳过：{(j.title or '')[:40]}"
                 ),
                 on_detail=_enrich,
             )
@@ -1168,9 +1155,7 @@ def make_search_jobs_tool(
             if len(snippet) > 160:
                 snippet = snippet[:160] + "…"
             match = getattr(score, "analysis_match", "") if score is not None else ""
-            pref = (
-                getattr(score, "analysis_preference", "") if score is not None else ""
-            )
+            pref = getattr(score, "analysis_preference", "") if score is not None else ""
             sal = getattr(score, "analysis_salary", "") if score is not None else ""
             gaps = getattr(score, "analysis_gaps", "") if score is not None else ""
             if score is not None:
@@ -1233,9 +1218,7 @@ def make_search_jobs_tool(
                 if "薪资上限" in reason:
                     n_salary += 1
                 if not relax_campus:
-                    emit_progress(
-                        f"硬过滤：{reason} -> {(getattr(j, 'title', '') or '')[:32]}"
-                    )
+                    emit_progress(f"硬过滤：{reason} -> {(getattr(j, 'title', '') or '')[:32]}")
             return eligible, n_salary
 
         def _score_pool(pool: list[Any]) -> list[Any]:
@@ -1345,9 +1328,7 @@ def make_search_jobs_tool(
                 f"注意：目标展示 {recommend_n} 条，当前只核实通过 {shown_n} 条匹配在招岗。"
             )
         if salary_filtered:
-            lines.append(
-                f"说明：按你的薪资期望已过滤 {salary_filtered} 条明显低薪岗位。"
-            )
+            lines.append(f"说明：按你的薪资期望已过滤 {salary_filtered} 条明显低薪岗位。")
 
         def _cards_for(order: list[Any]) -> list[str]:
             out: list[str] = []
@@ -1459,9 +1440,7 @@ def make_job_scout_subagent_tool(
     )
     sub = runner.as_tool()
     direct = make_job_scout_direct_tool(search_jobs_tool, tool_hooks=hooks)
-    default_task = (
-        "按已保存偏好搜索职位。第一轮必须调用 search_jobs，query 留空，source=auto。"
-    )
+    default_task = "按已保存偏好搜索职位。第一轮必须调用 search_jobs，query 留空，source=auto。"
 
     def handler(task: str = "") -> str:
         from repo2resume.agent.progress import emit_progress
@@ -1646,9 +1625,7 @@ def make_generate_resume_tool(
         if result.reports:
             must_left = len(result.reports[-1].must_fix)
         approved = result.reports[-1].approved if result.reports else False
-        critic_complete = (
-            result.reports[-1].critic_complete if result.reports else False
-        )
+        critic_complete = result.reports[-1].critic_complete if result.reports else False
         preview = result.markdown[:1200]
         path = result.output_path or Path(output_path)
         from repo2resume.resume.critic import format_generate_resume_status

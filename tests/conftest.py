@@ -5,7 +5,15 @@ from pathlib import Path
 
 import pytest
 
-for _proxy_var in ("HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "http_proxy", "https_proxy", "all_proxy"):
+_PROXY_VARS = (
+    "HTTP_PROXY",
+    "HTTPS_PROXY",
+    "ALL_PROXY",
+    "http_proxy",
+    "https_proxy",
+    "all_proxy",
+)
+for _proxy_var in _PROXY_VARS:
     os.environ.pop(_proxy_var, None)
 
 

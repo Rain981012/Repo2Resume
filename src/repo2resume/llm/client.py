@@ -522,11 +522,7 @@ class LLMClient:
             kwargs["api_base"] = api_base
         resolved = model or self._config.llm_model
         # `zai/glm-5.2` 已带 provider 前缀；再传 custom_llm_provider 会无法映射。
-        if (
-            isinstance(resolved, str)
-            and "/" not in resolved
-            and resolved.lower().startswith("glm")
-        ):
+        if isinstance(resolved, str) and "/" not in resolved and resolved.lower().startswith("glm"):
             kwargs["custom_llm_provider"] = "zai"
         return kwargs
 

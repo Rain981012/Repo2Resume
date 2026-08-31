@@ -130,9 +130,7 @@ def test_early_return_marker_skips_further_llm_rounds() -> None:
 
     def llm(messages, tools):
         calls["n"] += 1
-        return LLMResponse(
-            tool_calls=[ToolCall(id="c1", name="job_scout", arguments={})]
-        )
+        return LLMResponse(tool_calls=[ToolCall(id="c1", name="job_scout", arguments={})])
 
     loop = AgentLoop(
         llm=llm,
@@ -165,9 +163,7 @@ def test_loop_compacts_when_over_budget() -> None:
         if n["i"] >= 3:
             return LLMResponse(content="done")
         return LLMResponse(
-            tool_calls=[
-                ToolCall(id=f"c{n['i']}", name="add", arguments={"a": 1, "b": 1})
-            ]
+            tool_calls=[ToolCall(id=f"c{n['i']}", name="add", arguments={"a": 1, "b": 1})]
         )
 
     reg = ToolRegistry()
@@ -188,12 +184,7 @@ def test_loop_compacts_when_over_budget() -> None:
     assert all(isinstance(e[1], int) and e[1] >= 0 for e in compacted)
 
     msgs = ctx.messages()
-    ids = {
-        tc["id"]
-        for m in msgs
-        if m.get("tool_calls")
-        for tc in m["tool_calls"]
-    }
+    ids = {tc["id"] for m in msgs if m.get("tool_calls") for tc in m["tool_calls"]}
     for m in msgs:
         if m["role"] == "tool":
             assert m["tool_call_id"] in ids

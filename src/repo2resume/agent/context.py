@@ -79,7 +79,6 @@ A: ① 按「条数」裁而非按「轮次」裁，可能把一个 tool_call �
 from __future__ import annotations
 
 from collections.abc import Callable
-from tabnanny import check
 from typing import Any
 
 
@@ -187,8 +186,7 @@ class ContextManager:
             self._messages = []
         else:
             while (
-                keep_last < len(self._messages)
-                and self._messages[-keep_last].get("role") == "tool"
+                keep_last < len(self._messages) and self._messages[-keep_last].get("role") == "tool"
             ):
                 keep_last += 1
             self._messages = self._messages[-keep_last:]

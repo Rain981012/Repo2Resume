@@ -346,9 +346,7 @@ def test_programmatic_checks_flags_repo_order() -> None:
             ),
         ]
     )
-    items = programmatic_checks(
-        draft, expected_repo_order=["social-backend", "pdf-ui"]
-    )
+    items = programmatic_checks(draft, expected_repo_order=["social-backend", "pdf-ui"])
     assert any(i.category == "ats" for i in items)
 
 

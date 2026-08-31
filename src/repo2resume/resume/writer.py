@@ -250,9 +250,7 @@ def pack_materials_for_writer(
         )
         share = hints.get(repo) if hints else None
         if repo in (hints or {}) and hints is not None:
-            note = (
-                f"low_author_share={share}" if share is not None else "low_author_share=flagged"
-            )
+            note = f"low_author_share={share}" if share is not None else "low_author_share=flagged"
         else:
             note = "author_filtered_commits"
         packed.append(

@@ -223,9 +223,12 @@ def _job_url(raw: dict[str, Any], job_id: str) -> str:
 
 def jobs_from_mcp_payload(payload: Any, *, count: int) -> list[Job]:
     """把 MCP tools/call 结果映射成 Job。"""
-    data = unwrap_mcp_tool_result(payload) if isinstance(payload, dict) and (
-        "result" in payload or "error" in payload or "content" in payload
-    ) else payload
+    data = (
+        unwrap_mcp_tool_result(payload)
+        if isinstance(payload, dict)
+        and ("result" in payload or "error" in payload or "content" in payload)
+        else payload
+    )
     jobs: list[Job] = []
     seen: set[str] = set()
     for raw in _extract_job_dicts(data):
@@ -233,30 +236,33 @@ def jobs_from_mcp_payload(payload: Any, *, count: int) -> list[Job]:
             _first(raw, "jobId", "job_id", "ejobId", "ejob_id", "id", "positionId") or ""
         ).strip()
         title = str(
-            _first(raw, "jobName", "job_name", "title", "jobTitle", "job_title", "name")
-            or ""
+            _first(raw, "jobName", "job_name", "title", "jobTitle", "job_title", "name") or ""
         ).strip()
-        company = str(
-            _first(raw, "companyName", "company_name", "compName", "comp_name", "company")
-            or ""
-        ).strip() or None
-        location = str(
-            _first(
-                raw,
-                "location",
-                "address",
-                "city",
-                "dq",
-                "dqName",
-                "dq_name",
-                "jobDq",
-                "workPlace",
-            )
-            or ""
-        ).strip() or None
+        company = (
+            str(
+                _first(raw, "companyName", "company_name", "compName", "comp_name", "company") or ""
+            ).strip()
+            or None
+        )
+        location = (
+            str(
+                _first(
+                    raw,
+                    "location",
+                    "address",
+                    "city",
+                    "dq",
+                    "dqName",
+                    "dq_name",
+                    "jobDq",
+                    "workPlace",
+                )
+                or ""
+            ).strip()
+            or None
+        )
         salary = str(
-            _first(raw, "salary", "salaryShow", "salary_show", "salaryDesc", "compensation")
-            or ""
+            _first(raw, "salary", "salaryShow", "salary_show", "salaryDesc", "compensation") or ""
         ).strip()
         desc = str(
             _first(

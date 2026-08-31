@@ -83,12 +83,7 @@ def test_compact_never_leaves_orphan_tool_message() -> None:
     ctx.maybe_compact(keep_last=2)
 
     msgs = ctx.messages()
-    ids = {
-        tc["id"]
-        for m in msgs
-        if m.get("tool_calls")
-        for tc in m["tool_calls"]
-    }
+    ids = {tc["id"] for m in msgs if m.get("tool_calls") for tc in m["tool_calls"]}
     for m in msgs:
         if m["role"] == "tool":
             assert m["tool_call_id"] in ids
@@ -114,12 +109,7 @@ def test_compact_keeps_consecutive_tool_results() -> None:
     ctx.maybe_compact(keep_last=2)
 
     msgs = ctx.messages()
-    ids = {
-        tc["id"]
-        for m in msgs
-        if m.get("tool_calls")
-        for tc in m["tool_calls"]
-    }
+    ids = {tc["id"] for m in msgs if m.get("tool_calls") for tc in m["tool_calls"]}
     tool_ids = [m["tool_call_id"] for m in msgs if m["role"] == "tool"]
     assert tool_ids == ["a", "b", "c"]
     assert ids == {"a", "b", "c"}

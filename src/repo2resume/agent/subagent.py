@@ -433,8 +433,7 @@ def make_repo_analyst_tool(analyze_tool: Tool) -> Tool:
     return Tool(
         name="repo_analyst",
         description=(
-            "分析本地 git 贡献并返回统计与方向块。"
-            "当你需要完整分析/画像时调用；同一轮只调一次。"
+            "分析本地 git 贡献并返回统计与方向块。当你需要完整分析/画像时调用；同一轮只调一次。"
         ),
         params_model=RepoAnalystParams,
         handler=handler,

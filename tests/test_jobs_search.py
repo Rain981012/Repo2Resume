@@ -149,9 +149,7 @@ def test_bocha_source_handles_http_error():
 def test_detail_queries_keep_existing_site_operator() -> None:
     from repo2resume.jobs.search import _detail_oriented_queries, _domains_for_query
 
-    qs = _detail_oriented_queries(
-        "Python 后端工程师 校招 site:jobs.bytedance.com", locale="zh-CN"
-    )
+    qs = _detail_oriented_queries("Python 后端工程师 校招 site:jobs.bytedance.com", locale="zh-CN")
     assert qs == ["Python 后端工程师 校招 site:jobs.bytedance.com"]
     assert _domains_for_query(qs[0])[0] == "jobs.bytedance.com"
 
@@ -181,9 +179,7 @@ def test_is_job_detail_url_accepts_detail_rejects_search():
     assert not _is_job_detail_url("https://www.zhipin.com/zhaopin/ae7868255d0e25bd1Hx529S6")
     assert not _is_job_detail_url("https://msearch.51job.com/jobs/shenzhen/158.html")
     assert not _is_job_detail_url("https://join.qq.com/post_detail.html?postid=")
-    assert _is_job_detail_url(
-        "https://join.qq.com/post_detail.html?postid=1147651181158656035"
-    )
+    assert _is_job_detail_url("https://join.qq.com/post_detail.html?postid=1147651181158656035")
 
 
 def test_listing_aggregate_keeps_detail_titles_with_zhaopin_info():
@@ -416,9 +412,7 @@ def test_counts_toward_quota_drops_unknown_keeps_detail_and_mock():
             source="tavily",
         )
     )
-    assert _counts_toward_quota(
-        Job(id="m", title="Mock Backend", source="mock")
-    )
+    assert _counts_toward_quota(Job(id="m", title="Mock Backend", source="mock"))
 
 
 def test_bocha_401_marks_auth_failed(monkeypatch):
