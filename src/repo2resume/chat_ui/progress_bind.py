@@ -22,6 +22,7 @@ TOOL_STATUS = {
     "search_jobs": "搜索职位…",
     "analyze_repo": "分析仓库…",
     "find_project_materials": "检索项目素材…",
+    "set_job_prefs": "保存搜岗偏好…",
 }
 
 
@@ -41,11 +42,18 @@ def make_on_token(console: Console, chat_ui: dict[str, Any]) -> Callable[[str], 
 
 
 def make_on_progress(console: Console, chat_ui: dict[str, Any]) -> Callable[[str], None]:
-    """可被心跳线程调用；不用 Rich Console.print。"""
+    """可被心跳线程调用；不用 Rich Console.print。连续相同文案去重。"""
+
+    last: dict[str, str] = {"msg": ""}
 
     def _on_progress(message: str) -> None:
         _ = console, chat_ui
-        _print_progress_line(message)
+        text = (message or "").strip()
+        # 心跳「已等待」允许重复；普通阶段文案去重，避免 llm_response+tool_start 双刷
+        if "（已等待" not in text and text == last["msg"]:
+            return
+        last["msg"] = text
+        _print_progress_line(text)
 
     return _on_progress
 
@@ -61,13 +69,9 @@ def make_on_event(console: Console, chat_ui: dict[str, Any]) -> Callable[[str, A
             emit_progress(label)
         elif kind == "tool_done":
             pass
-        elif kind == "llm_response":
-            if data and data.tool_calls:
-                names = ", ".join(tc.name for tc in data.tool_calls)
-                if len(data.tool_calls) == 1:
-                    label = TOOL_STATUS.get(names, f"calling {names}...")
-                else:
-                    label = f"calling {names}..."
-                emit_progress(label)
+        elif kind == "context_compacted":
+            dropped = data if isinstance(data, int) else 0
+            emit_progress(f"上下文超限，已裁剪 {dropped} 条较早消息")
+        # 不再在 llm_response 再打一遍：会与 tool_start 重复，看起来像调了两次
 
     return _on_event

@@ -49,6 +49,11 @@ def test_stops_on_repeated_same_tool() -> None:
 
     out = loop.run("test")
     assert "卡死" in out or "重复" in out or "stuck" in out.lower()
+    assert "原因：" in out
+    assert loop.last_stop_reason == "stuck"
+    assert loop.last_stuck_detail is not None
+    assert loop.last_stuck_detail["repeat"] == 3
+    assert loop.last_stuck_detail["tools"] == ["add"]
     # 不该把 20 轮跑满：3 次重复就停
     assert calls["n"] <= 4
 

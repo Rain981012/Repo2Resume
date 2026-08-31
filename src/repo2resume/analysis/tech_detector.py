@@ -128,7 +128,12 @@ DATABASE_HINTS = {
 
 INFRA_HINTS = {
     "docker",
+    "docker-compose",
     "kubernetes",
+    "nginx",
+    "rabbitmq",
+    "supervisor",
+    "systemd",
     "gunicorn",
     "uvicorn",
     "pytest",
@@ -139,7 +144,7 @@ INFRA_HINTS = {
 
 
 def collect_dependencies(repo: Path) -> dict[str, list[str]]:
-    """扫描仓库根目录下所有已知清单文件，返回 `{清单名: 去重排序后的依赖名列表}`。"""
+    """扫描仓库依赖与基础设施清单，返回 `{清单名: 去重排序后的依赖名列表}`。"""
     found: dict[str, list[str]] = {}
     for fname, parser in MANIFEST_PARSERS.items():
         f = repo / fname
@@ -151,6 +156,53 @@ def collect_dependencies(repo: Path) -> dict[str, list[str]]:
             deps = []
         if deps:
             found[fname] = sorted(set(deps))[:80]
+
+    # requirements/*.txt（如 requirements/dev.txt, requirements/prod.txt）
+    for req in sorted((repo / "requirements").glob("*.txt")):
+        try:
+            deps = _parse_requirements(req)
+        except Exception:
+            deps = []
+        if deps:
+            key = str(req.relative_to(repo))
+            found[key] = sorted(set(deps))[:80]
+
+    # docker-compose*.yml / *.yaml（提取 image / service 关键词）
+    compose_files = sorted(repo.glob("docker-compose*.yml")) + sorted(
+        repo.glob("docker-compose*.yaml")
+    )
+    compose_tokens = ("redis", "rabbitmq", "postgres", "mysql", "nginx", "celery")
+    for compose in compose_files:
+        text = compose.read_text(errors="ignore")
+        deps: list[str] = []
+        for line in text.splitlines():
+            raw = line.strip()
+            low = raw.lower()
+            if low.startswith("image:"):
+                image = raw.split(":", 1)[1].strip().strip("'\"")
+                if image:
+                    deps.append(image.split("/")[-1].split(":")[0])
+            if any(tok in low for tok in compose_tokens):
+                for tok in compose_tokens:
+                    if tok in low:
+                        deps.append(tok)
+        if deps:
+            key = str(compose.relative_to(repo))
+            found[key] = sorted(set(deps))[:80]
+
+    # nginx*.conf（根目录与常见部署目录）
+    nginx_files = list(repo.glob("nginx*.conf"))
+    nginx_files += list((repo / "deploy").glob("nginx*.conf")) if (repo / "deploy").exists() else []
+    nginx_files += list((repo / "ops").glob("nginx*.conf")) if (repo / "ops").exists() else []
+    nginx_files += list((repo / "infra").glob("nginx*.conf")) if (repo / "infra").exists() else []
+    for conf in sorted(set(nginx_files)):
+        text = conf.read_text(errors="ignore").lower()
+        deps = ["nginx"]
+        for tok in ("upstream", "proxy_pass", "redis", "celery"):
+            if tok in text:
+                deps.append(tok)
+        key = str(conf.relative_to(repo))
+        found[key] = sorted(set(deps))
     return found
 
 

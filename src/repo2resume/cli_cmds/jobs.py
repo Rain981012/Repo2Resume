@@ -31,7 +31,10 @@ def register(app: typer.Typer) -> None:
         ] = 5,
         source: Annotated[
             str,
-            typer.Option("--source", help="Job source: auto|tavily|bocha|mock."),
+            typer.Option(
+                "--source",
+                help="Job source: auto|liepin_mcp|tavily|bocha|alibaba_top|mock.",
+            ),
         ] = "auto",
         output: Annotated[
             Path | None,

@@ -168,3 +168,46 @@ def test_success_path_still_works_after_step2() -> None:
     reg.register(make_add_tool())
     reg.add_hook(_DoubleArgsAddThousandHook())
     assert reg.call("add", {"a": 2, "b": 3}) == 1010
+
+
+def test_unknown_tool_recovered_when_permission_before_looks_up_risk() -> None:
+    """复现 chat 故障：LLM 幻觉工具名（job_sought）时，PermissionHook.before
+    里 risk_of → reg.get 抛 ValueError，若 before 不在 try 内，ErrorRecovery 接不住，
+    REPL 直接 error 中断。期望：call 返回恢复文本，不抛。
+    """
+    from repo2resume.agent.hooks import ErrorRecoveryHook, PermissionHook
+
+    reg = ToolRegistry()
+    reg.register(make_add_tool())
+    reg.add_hook(
+        PermissionHook(
+            risk_of=lambda n: reg.get(n).risk,
+            needs_confirm_risks={"write", "network"},
+            confirm=lambda _n, _a: True,
+        )
+    )
+    reg.add_hook(ErrorRecoveryHook())
+
+    out = reg.call("job_sought", {})
+    assert isinstance(out, str)
+    assert "job_sought" in out
+    assert "失败" in out or "not found" in out.lower()
+
+
+def test_permission_denied_still_propagates_from_before() -> None:
+    """权限拒绝仍必须炸穿（不能被 ErrorRecovery 吞）。"""
+    from repo2resume.agent.hooks import ErrorRecoveryHook, PermissionDenied, PermissionHook
+
+    reg = ToolRegistry()
+    reg.register(make_add_tool())
+    reg.add_hook(
+        PermissionHook(
+            risk_of=lambda _n: "write",
+            needs_confirm_risks={"write"},
+            confirm=lambda _n, _a: False,
+        )
+    )
+    reg.add_hook(ErrorRecoveryHook())
+
+    with pytest.raises(PermissionDenied):
+        reg.call("add", {"a": 1, "b": 2})

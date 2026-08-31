@@ -1,109 +1,160 @@
 # Repo2Resume
 
-CLI agent: analyze local git repos → skill profile → matching jobs → tailored Markdown resume.
+本地 git 仓库 → 技能画像 → 可投职位 → 针对选定 JD 的可溯源简历。
 
-> Status: Phase 0 skeleton. Phase A skill prototype lives under `skill/`.
+公司用筛选器和模型刷候选人。Repo2Resume 反过来：**用你自己的代码仓当证据，帮你挑岗、写稿，并且默认不信模型和搜索结果。**
 
-## Requirements
+主入口是本机 CLI 对话：`repo2resume chat`。不是浏览器插件，不是海投器，也不会替你点「投递」。
 
-- Python 3.11+
-- Docker (optional, for Redis). Without Redis the CLI falls back to SQLite cache.
+> **这不是「用大模型写一份简历」。** 也不是再封装一个职位搜索。找工作时卡住的是三件事：我到底做过什么、哪些岗值得投、对着这份 JD 怎么写才不像在吹牛。工具按这个顺序带你走完；方向和投哪一个由你拍板。
 
-## Install
+## 为什么要做
+
+国内招聘站和网页搜索能列出很多「职位」，但求职侧仍然很难把**真实仓库**变成**可投材料**：
+
+- 能列出技术栈，说不清每条经历对应哪个模块、自己贡献到哪一步。多人仓更容易写成「独立完成整个平台」。
+- 搜到的经常是列表页、过期校招活动、空标题、资深岗或研究岗。应届后端画像排到这些页，不是排序差一点，是漏斗没做。
+- 把仓库摘要和 JD 丢给聊天模型，最容易出无出处数字。投出去会在面试里被问穿。
+- 一次生成无法验收：不知道这条从哪来、审过没有、没审完能不能当通过。
+
+Repo2Resume 把这三件事收成一条可重复的链：先用 git 证据立画像，再按画像和偏好找**能点开的岗**，最后只针对你选定的那份 JD 写项目经历。
+
+## 项目做了什么
+
+| 环节 | 对你意味着什么 |
+|------|----------------|
+| **仓库分析** | 按作者过滤 commit，汇总技术栈、项目定位和亮点，标出贡献过低的仓 |
+| **方向确认** | 给出可投职位类型（如 Python 后端、Agent 应用），未确认不搜岗 |
+| **搜岗漏斗** | 多源召回后丢掉失效页/壳标题，按城市、校招等硬资格过滤，再排序 |
+| **详情快照** | 写简历用完整 JD，不用搜索摘要冒充职位描述 |
+| **按岗写经历** | 只针对你选的那一个岗选材，输出带证据的结构化条目 |
+| **硬闸门 + 审稿** | 禁词、贪功、空证据先拦；模型再挑和 JD 相关的问题。没审完不能显示「已通过」 |
+| **人在环上** | 联网和写文件会确认；不自动投递；「再搜一批」会真的再搜 |
+
+配了 Tavily / 猎聘 / 阿里招聘则走真实源；都没有也能用标明的示例岗，先把写简历后半段跑通。
+
+## 工作原理
+
+```
+/local_repos 里的 git 仓
+        │
+        ▼
+   repo_analyst          你确认主方向
+        │
+        ▼
+   写下偏好              城市 / 校招 / 远程
+        │
+        ▼
+   job_scout             漏斗 → Top-N（链接 + 职位编号）
+        │
+        ▼              你选序号
+   generate_resume       快照 JD + 仓库素材 → 写 → 审 → resume_draft.md
+```
+
+主对话只调度，不自己编长简历。数字和 URL 只引用工具返回。缺步会被拒绝：还没分析不搜岗，还没选岗不写稿。
+
+## 和常见做法有何不同
+
+- **证据在仓里，不在聊天记忆里。** 画像、偏好、职位、草稿落在本机；聊天超长会被裁掉，关键状态不丢。
+- **搜岗当漏斗，不当「搜索第一页」。** 网页检索不是招聘 API。列表层表示「发现了这个岗」；写作读详情快照。
+- **Prompt 是模板，闸门是代码。** 改文笔可以调提示词；空证据、内部占比漏进正文、整站主导句不交给模型自觉。
+- **Drafter / Critic 分开。** 写作出结构化 JSON，审稿只挑 must，默认不把稿改散。超时可以留稿，状态必须诚实。
+- **不是海投。** 一次只针对你选定的岗生成一份经历稿。系统不能保证约面，也不能替你改职业规划。
+
+## 决策权
+
+| 必须由你拍板 | 交给系统 | 系统不能打包票 |
+|--------------|----------|----------------|
+| 认不认这个方向 | 挖仓、清噪声、按 JD 选材写稿 | 这个方向一定好找工作 |
+| 城市 / 校招 / 远程 | 原样展示榜单（匹配点、缺口、链接） | 一定能内推 |
+| 投榜上哪一个 | 审稿与闸门 | 超时后的稿已经完美 |
+| 投递前是否再改、是否去掉溯源 | 会话续跑、花费可查 | 自动投出去 |
+
+## 给谁用、成功长什么样
+
+面向**有真实代码仓、要投国内技术岗（尤其校招/实习）的个人**。仓和分析结果都在本机，不把代码推到第三方简历网站。
+
+一次跑通应同时满足：画像和仓库相符（多人仓按作者过滤）；Top-N 是能打开、和偏好相符的岗；每条经历能指回素材；审稿未完成时界面不说「已通过」。
+
+输出是 Markdown，可粘到招聘平台或自行转 PDF。不做：自动投递、爬社交网络、Web 控制台、精美排版、代替你做职业决策。
+
+## 快速开始
+
+需要 Python 3.11+。可选 Docker Redis（没有则用 SQLite 缓存）。首次搜岗或写简历会下载本地 embedding（默认约 1.2GB），用来按 JD 召回仓库素材。
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"
+
+docker compose up -d          # 可选
+repo2resume init              # API key、姓名、邮箱、模型、搜岗 key
 ```
 
-## Quick start
+非交互：`export REPO2RESUME_LLM_API_KEY=...` 后执行 `repo2resume init --non-interactive`。
+
+配置在 `~/.repo2resume/config.toml`。对话可用较强模型；写作/审稿默认用更不容易卡死的模型——审稿是挑错，不值得为「更强」赌超时。搜岗 key 没有时仍可走 mock。
+
+把 git 仓放到 `./local_repos/`：
 
 ```bash
-# Optional: Redis for primary cache
-docker compose up -d
-
-# Config wizard (API key, name, email, model…)
-repo2resume init
-
-# Or non-interactive (reads REPO2RESUME_* env vars)
-export REPO2RESUME_LLM_API_KEY=...
-repo2resume init --non-interactive
+repo2resume chat
+# 分析 → 确认方向 → 偏好 → 看榜 → 选序号 → resume_draft.md
 ```
 
-Default model: `zai/glm-5.2` with fallback `zai/glm-4.5-flash` (quota exhausted → free tier).
-Config: `~/.repo2resume/config.toml`.
+再次 `chat` 默认续上一段；`--new` 开新会话，`-r <id>` 指定某一段。Chat 里 `/cost` 看花费。
 
-```toml
-llm_model = "zai/glm-5.2"
-llm_fallback_model = "zai/glm-4.5-flash"
-```
-
-## Embedding 模型选型
-
-Repo2Resume 用 embedding 把项目素材切片编码进本地向量库（ChromaDB），供混合检索 + rerank 使用。
-默认 `embed_model = "local:Qwen/Qwen3-Embedding-0.6B"`，可按需切换。
-
-### 可选配置
-
-| 配置 | 模型大小 | 首次下载 | 后续建索引 | 内存 | 适用场景 |
-|---|---|---|---|---|---|
-| `local:Qwen/Qwen3-Embedding-0.6B`（默认） | ~1.2GB | 1–3 分钟 | 10–30 秒 | 2–3GB | 中英 + 代码项目；32K 上下文不截断；甜点档 |
-| `local:Qwen3-Embedding-4B`（高精度档） | ~8GB | 10–25 分钟 | 30 秒–5 分钟 | 8–16GB | 大仓库 / 有 GPU / 学习对比实验 |
-| `openai/text-embedding-3-small`（未实现，见 `embedder.py` 的 `build_embedder`） | 0 | 0 | <1 秒 | 0 | 不想下载模型、有 OpenAI key、不在意代码上传 |
-
-### 为什么默认是 Qwen3-Embedding-0.6B？
-
-本项目检索对象是 git 仓库素材（commit message、diff、tech_stack、readme），有三个刚需决定了默认选择：
-
-- **中文支持**：项目里有大量中文（简历、复盘文档、commit message、README）。Qwen3-0.6B 原生支持 100+ 语言，CMTEB-R 中文检索 71.02 分——纯英文模型（如 bge-small-en）对中文基本是「瞎编码」，不适合本项目。
-- **代码语义**：这是 git 仓库分析工具，检索对象含大量代码标识符（`FastAPI`、`Kubernetes`、`asyncio`）。Qwen3-0.6B 在 MTEB-Code 拿 75.41，专门优化过代码语义。
-- **上下文长度**：Qwen3-0.6B 的 32K 上下文能完整编码一个项目的 README + 多个 commit summary 拼起来的长文本，不用担心被截断。
-
-而它的代价（1–3 分钟下载、2–3GB 内存）对 fork 用户完全可接受——比 Qwen3-4B 的 20 分钟 + 16GB 内存轻 7×，换来的是「中文 + 代码 + 长上下文」三个刚需维度的覆盖。
-
-### 怎么切换
+## 分步命令
 
 ```bash
-# 临时（环境变量）
-export REPO2RESUME_EMBED_MODEL=local:Qwen3-Embedding-4B      # 高精度
-
-# 持久（写进 config.toml）
-repo2resume init  # 交互式向导里选
-# 或直接编辑 ~/.repo2resume/config.toml：
-# embed_model = "local:Qwen3-Embedding-4B"
+repo2resume analyze --author you@email.com -o profile.json
+repo2resume jobs --source auto
+repo2resume resume --job <id> -o resume_draft.md
+repo2resume export -o resume_export.md --strip-src
 ```
 
-### 什么时候完全不需要 embedding？
+| 命令 | 作用 |
+|------|------|
+| `init` | 身份、模型、搜岗凭证 |
+| `analyze` | 只做仓 → 画像 |
+| `chat` | 带确认点的全流程 |
+| `jobs` | 已有画像和偏好时只搜岗 |
+| `resume` | 已选定职位时只写稿 |
+| `export` | 最新草稿；`--strip-src` 为投递版 |
+| `evals run` | 检索、写稿闸门、可选模型打分 |
 
-仓库很小（<30 个切片）且只投一两份 JD 时，可以跳过向量检索，只用 SQLite FTS5 关键词检索（零模型下载、<1 秒建索引）。代价是失去语义匹配（"高并发"匹配不到"QPS/压测"）。后续可加一个 `--no-vector` 开关走纯 BM25 降级路径。
+## 怎样得到更好的结果
 
-## Analyze (Phase 1)
+画像越具体，搜岗和写稿越稳。不要只留仓库名：确认方向时看清「低贡献仓」提示，写稿就不会把别人的模块写成你的。偏好写成明确字段（城市列表、校招是否限制），不要指望模型从闲聊里猜。榜单请看链接和缺口再选岗，不要让主对话改写成一段推荐语。生成后对照 `<!-- src -->` 核仓库；对外投递再 `export --strip-src`。
 
-Paths are **local git directories** (not GitHub URLs). With no args, scans `./local_repos/`.
-Authors are discovered from git history — you pick from a list (or pass `--author` for scripts).
+改提示词能改善文笔，不能单独保证业务正确。离线可跑检索和闸门；有 API key 再跑写作闭环。记录见 `evals/TUNING_LOG.md`。
 
 ```bash
-# Interactive: list authors → select → analyze
-repo2resume analyze --stats-only
-repo2resume analyze -o profile.json
-
-# Non-interactive (CI / scripts)
-repo2resume analyze --author you@email.com --stats-only
+repo2resume evals run --no-llm --save-baseline
+repo2resume evals run --suite retrieval --no-llm --backend hybrid
+repo2resume evals run --suite resume_judge    # 需要 API key
 ```
 
-## Commands
+可选：配置 LangSmith（`lsv2_` 开头，不要提交 git）后，在 [smith.langchain.com](https://smith.langchain.com) 看某一轮分析/搜岗/写作耗时。复现包在 `~/.repo2resume/runs/`。不配则不打点。
 
-| Command | Phase |
-|---------|-------|
-| `repo2resume init` | 0 |
-| `repo2resume analyze` | 1 |
-| `repo2resume chat` | 2 |
-| `repo2resume jobs` | 3 |
-| `repo2resume resume` / `export` | 4 |
-| `repo2resume evals run` | 5 |
+## FAQ
 
-## Dev
+**会自动投递吗？**  
+不会。只搜、写、落盘。提交始终由你完成。
+
+**和直接把仓库丢给 ChatGPT 有何不同？**  
+这里先立可核对的画像，搜岗要过漏斗，写稿有证据和闸门；没审完不会显示通过。聊天模型没有这些业务约束。
+
+**没有招聘网站账号或搜岗 API 也能用吗？**  
+可以。分析仓库不依赖搜岗；搜岗无 key 时用示例岗跑通写简历。要真实榜单需在 `init` 里配置相应 key。
+
+**数据在哪？**  
+配置、库、缓存默认在 `~/.repo2resume/`。仓仍在你指定的本地路径。LLM 调用会发往你配置的模型服务商，请自行遵守其条款。
+
+**审稿一直超时怎么办？**  
+默认已把写作/审稿放到更稳的模型。超时会留稿并标明未完成审稿，请人工过一遍，不要把状态当成通过。
+
+## 开发
 
 ```bash
 ruff check src tests
@@ -111,6 +162,8 @@ ruff format src tests
 pytest
 ```
 
-## Design
+部分代码与文档在 AI 辅助下完成，由维护者审核修改。
 
-See [`docs/design_docs/DESIGN.md`](docs/design_docs/DESIGN.md) and [`docs/design_docs/MVP_PLAN.md`](docs/design_docs/MVP_PLAN.md).
+## 免责声明
+
+本工具在本机运行，用于个人求职准备。职位信息来自你配置的搜索源，可能过期或不准确；生成的简历必须你自己核对后再投。开发者不对求职结果、账号限制或第三方平台条款承担责任。不要用于大规模采集或骚扰招聘方。

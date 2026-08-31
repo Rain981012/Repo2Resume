@@ -6,11 +6,13 @@ import signal
 import uuid
 from collections.abc import Iterator
 from contextlib import contextmanager
-from typing import Any
+from dataclasses import dataclass
+from typing import Any, Literal
 
 import typer
 from rich.console import Console
 from rich.panel import Panel
+from rich.text import Text
 
 from repo2resume.agent.cancel import RunCancelled, cancel_scope
 from repo2resume.agent.hooks import PermissionDenied
@@ -25,7 +27,44 @@ from repo2resume.chat_ui.setup import build_chat_runtime
 from repo2resume.config import AppConfig, load_config
 from repo2resume.jobs.usage import SearchUsageTracker, set_search_usage_tracker
 from repo2resume.storage.cache import open_cache
-from repo2resume.storage.db import open_db
+from repo2resume.storage.db import Database, open_db
+
+
+@dataclass(frozen=True)
+class ChatSessionRef:
+    """REPL 要用哪一段对话：id + 已落盘消息（新会话 history 为 None）。"""
+
+    session_id: str
+    history: list[dict[str, Any]] | None
+    kind: Literal["continued", "explicit", "new"]
+
+
+def resolve_chat_session(
+    db: Database,
+    *,
+    resume: str | None = None,
+    new: bool = False,
+) -> ChatSessionRef:
+    """无 flag 时续最近一次会话；--resume 指定 id；--new 强制新开。"""
+    if resume and new:
+        raise ValueError("不能同时使用 --resume 和 --new")
+    if resume:
+        history = db.load_session(resume)
+        if history is None:
+            raise LookupError(resume)
+        return ChatSessionRef(session_id=resume, history=history, kind="explicit")
+    if not new:
+        recent = db.list_sessions(limit=1)
+        if recent:
+            sid = str(recent[0]["id"])
+            history = db.load_session(sid)
+            if history is not None:
+                return ChatSessionRef(session_id=sid, history=history, kind="continued")
+    return ChatSessionRef(
+        session_id=uuid.uuid4().hex[:12],
+        history=None,
+        kind="new",
+    )
 
 
 @contextmanager
@@ -51,6 +90,7 @@ def soft_sigint(token: Any) -> Iterator[None]:
 def run_chat_session(
     *,
     resume: str | None = None,
+    new: bool = False,
     console: Console | None = None,
     cfg: AppConfig | None = None,
 ) -> None:
@@ -62,18 +102,28 @@ def run_chat_session(
 
     chat_ui: dict[str, Any] = {"status": None, "streaming": False}
 
-    if resume:
-        history = db.load_session(resume)
-        if history is None:
-            console.print(f"[red]session {resume} not found[/red]")
-            cache.close()
-            db.close()
-            raise typer.Exit(code=1)
-        session_id = resume
-        console.print(f"[dim]resumed session {session_id} ({len(history)} msgs)[/dim]")
-    else:
-        history = None
-        session_id = uuid.uuid4().hex[:12]
+    try:
+        ref = resolve_chat_session(db, resume=resume, new=new)
+    except ValueError as exc:
+        console.print(f"[red]{exc}[/red]")
+        cache.close()
+        db.close()
+        raise typer.Exit(code=1) from exc
+    except LookupError as exc:
+        console.print(f"[red]session {exc} not found[/red]")
+        cache.close()
+        db.close()
+        raise typer.Exit(code=1) from exc
+
+    session_id = ref.session_id
+    history = ref.history
+    if ref.kind == "continued":
+        console.print(
+            f"[dim]已自动续上上次对话 session {session_id} "
+            f"（{len(history or [])} msgs；--new 开新会话）[/dim]"
+        )
+    elif ref.kind == "explicit":
+        console.print(f"[dim]resumed session {session_id} ({len(history or [])} msgs)[/dim]")
 
     runtime = build_chat_runtime(
         cfg=cfg,
@@ -86,12 +136,24 @@ def run_chat_session(
     if history is not None:
         runtime.context._messages = history
 
+    from repo2resume.observability.run_context import (
+        bind_data_dir,
+        bind_llm_model,
+        bind_session,
+        current_run_id,
+    )
+
+    bind_session(session_id)
+    bind_llm_model(cfg.llm_model)
+    bind_data_dir(cfg.data_dir)
+    last_obs_run_id: str | None = None
+
     console.print(
         Panel(
             f"repo2resume chat — session {session_id}\n"
-            "输入问题，Ctrl-D 或 /quit 退出。/cost 看成本。\n"
+            "输入问题，Ctrl-D 或 /quit 退出。/cost 看本会话成本，/cost last 看上一轮。\n"
             "运行中 Ctrl-C：中断本轮；空闲时连按两次 Ctrl-C 退出（或 /quit）。\n"
-            f"下次用 --resume {session_id} 续聊。",
+            "下次直接 repo2resume chat 会自动续上本段；repo2resume chat --new 开新会话。",
             title="Chat",
             style="cyan",
         )
@@ -125,8 +187,20 @@ def run_chat_session(
             if user.strip().lower() == "/cost":
                 print_session_cost(console, db, session_id, search_usage)
                 continue
+            if user.strip().lower() in {"/cost last", "/costlast"}:
+                if not last_obs_run_id:
+                    console.print("[dim]还没有完整的一轮对话。[/dim]")
+                else:
+                    print_session_cost(
+                        console, db, session_id, search_usage, run_id=last_obs_run_id
+                    )
+                continue
 
-            console.print(f"[dim]model: {cfg.llm_model}[/dim]")
+            console.print(
+                f"[dim]model: {cfg.llm_model}（搜岗/对话）  "
+                f"writer: {cfg.model_for('writer')}  "
+                f"critic: {cfg.model_for('critic')}[/dim]"
+            )
             console.print("[dim]提示：Ctrl-C 可中断本轮[/dim]")
 
             progress_token = set_progress_callback(on_progress)
@@ -140,6 +214,7 @@ def run_chat_session(
                         chat_ui["streaming"] = False
                         with progress_heartbeat(10.0):
                             answer = runtime.loop.run(user, on_event=on_event)
+                            last_obs_run_id = current_run_id()
             except RunCancelled:
                 interrupted = True
                 console.print(
@@ -168,7 +243,7 @@ def run_chat_session(
             if chat_ui["streaming"]:
                 console.print()
             else:
-                console.print(Panel(answer, title="assistant", style="green"))
+                console.print(Panel(Text(answer), title="assistant", style="green"))
             db.save_session(session_id, runtime.context._messages, title=user[:40])
     finally:
         console.print(f"[dim]session {session_id} saved[/dim]")

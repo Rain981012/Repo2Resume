@@ -36,6 +36,9 @@ dev = [
     "pytest>=8",
     "ruff>=0.6",
 ]
+observability = [
+    "langsmith>=0.2",
+]
 
 [project.scripts]
 repo2resume = "repo2resume.cli:app"

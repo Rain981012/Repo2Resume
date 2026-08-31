@@ -1,41 +1,80 @@
 [
   {
-    "query": "Python backend microservices",
+    "query": "Python backend microservices FastAPI",
     "expected_doc_ids": [
-      "repo:my-api:summary",
-      "repo:my-api:commits"
+      "repo:demo-api:summary",
+      "repo:demo-api:commits"
     ],
-    "notes": "Replace with your own repo names after running analyze."
+    "notes": "Fixture: API backend"
   },
   {
     "query": "Kubernetes and container orchestration",
     "expected_doc_ids": [
-      "repo:infra-tools:summary",
-      "repo:infra-tools:deps"
+      "repo:k8s-ops:summary",
+      "repo:k8s-ops:deps"
     ],
-    "notes": "Placeholder: adjust doc_ids to your real repos."
+    "notes": "Fixture: k8s"
   },
   {
     "query": "machine learning transformers",
     "expected_doc_ids": [
       "profile:tech_stack",
-      "repo:ml-experiment:summary"
+      "repo:ml-lab:summary"
     ],
-    "notes": "Placeholder."
+    "notes": "Fixture: ML"
   },
   {
     "query": "React frontend TypeScript",
     "expected_doc_ids": [
-      "repo:my-webapp:summary"
+      "repo:web-ui:summary"
     ],
-    "notes": "Placeholder for frontend JD."
+    "notes": "Fixture: frontend"
   },
   {
     "query": "data pipeline ETL Spark",
     "expected_doc_ids": [
-      "repo:data-platform:summary",
-      "repo:data-platform:commits"
+      "repo:etl-spark:summary",
+      "repo:etl-spark:commits"
     ],
-    "notes": "Placeholder for data engineering JD."
+    "notes": "Fixture: data eng"
+  },
+  {
+    "query": "distributed social inbox federation Django",
+    "expected_doc_ids": [
+      "repo:social-dist:highlight:inbox",
+      "repo:social-dist:summary"
+    ],
+    "notes": "Fixture: socialdistribution-like"
+  },
+  {
+    "query": "CLI agent resume Writer Critic tool loop",
+    "expected_doc_ids": [
+      "repo:resume-cli:highlight:agent",
+      "repo:resume-cli:summary"
+    ],
+    "notes": "Fixture: Repo2Resume-like"
+  },
+  {
+    "query": "Redis cache JWT authentication FastAPI",
+    "expected_doc_ids": [
+      "repo:demo-api:summary",
+      "repo:demo-api:deps"
+    ],
+    "notes": "Fixture: auth/cache keywords"
+  },
+  {
+    "query": "helm terraform docker",
+    "expected_doc_ids": [
+      "repo:k8s-ops:deps"
+    ],
+    "notes": "Fixture: infra deps"
+  },
+  {
+    "query": "pytorch transformers fine-tuning",
+    "expected_doc_ids": [
+      "repo:ml-lab:summary",
+      "profile:tech_stack"
+    ],
+    "notes": "Fixture: ML stack"
   }
 ]

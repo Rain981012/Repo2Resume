@@ -1,0 +1,389 @@
+[
+  {
+    "id": "clean_ok",
+    "expect_must_empty": true,
+    "draft": {
+      "locale": "zh-CN",
+      "projects": [
+        {
+          "project_name": "社交平台后端",
+          "one_liner": "去中心化社交内容分发服务。",
+          "rank": 0,
+          "bullets": [
+            {
+              "label": "Inbox API",
+              "body": "实现 Inbox 收发接口与跨节点请求签名校验；使用 Redis 缓存热门时间线以降低跨节点拉取延迟；补充批次失败重试与操作审计日志，避免静默丢件并便于定位投递故障。",
+              "evidence": {"source": "social-dist", "detail": "inbox CRUD"}
+            },
+            {
+              "label": "关注关系",
+              "body": "实现关注与取关写路径、粉丝列表分页及本地缓存失效；保证列表与时间线最终一致；对下游超时与错误响应做降级，避免单点故障拖垮主流程；补充操作审计日志便于排查误操作。",
+              "evidence": {"source": "social-dist", "detail": "follow graph"}
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "slogan_too_short",
+    "expect_must_empty": false,
+    "expect_must_categories": ["style"],
+    "draft": {
+      "locale": "zh-CN",
+      "projects": [
+        {
+          "project_name": "天气预测",
+          "one_liner": "基于气象数据的预测系统。",
+          "bullets": [
+            {
+              "label": "模型训练",
+              "body": "完成模型训练与评估部分",
+              "evidence": {"source": "ada", "detail": "train eval"}
+            },
+            {
+              "label": "特征工程",
+              "body": "添加降雨量预测",
+              "evidence": {"source": "ada", "detail": "rain feature"}
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "empty_evidence",
+    "expect_must_empty": false,
+    "expect_must_categories": ["fact", "structure", "style"],
+    "draft": {
+      "locale": "zh-CN",
+      "projects": [
+        {
+          "project_name": "订单服务",
+          "one_liner": "订单中台。",
+          "bullets": [
+            {
+              "label": "下单",
+              "body": "负责后端开发",
+              "evidence": {"source": "", "detail": ""}
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "forbidden_share_wording",
+    "expect_must_empty": false,
+    "expect_must_categories": ["fact", "structure", "style"],
+    "draft": {
+      "locale": "zh-CN",
+      "projects": [
+        {
+          "project_name": "协作仓（多人协作）",
+          "one_liner": "本人贡献占比低的演示服务。",
+          "bullets": [
+            {
+              "label": "模块",
+              "body": "参与开发，author_share 约 0.1。",
+              "evidence": {"source": "team-repo", "detail": "misc"}
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "overclaim_complete_system",
+    "expect_must_empty": false,
+    "expect_must_categories": ["fact", "structure", "style"],
+    "draft": {
+      "locale": "zh-CN",
+      "projects": [
+        {
+          "project_name": "社交平台",
+          "one_liner": "分布式社交。",
+          "bullets": [
+            {
+              "label": "全栈",
+              "body": "设计并实现完整的用户认证系统与跨节点通信，覆盖注册登录、会话与消息链路的全部前后端模块并独立上线。",
+              "evidence": {"source": "social-dist", "detail": "auth"}
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "clean_multi_project",
+    "expect_must_empty": true,
+    "draft": {
+      "locale": "zh-CN",
+      "projects": [
+        {
+          "project_name": "简历 CLI",
+          "one_liner": "本地仓库分析生成 Markdown 简历。",
+          "rank": 0,
+          "bullets": [
+            {
+              "label": "Agent Loop",
+              "body": "实现 tool-use 循环、权限钩子与进度回调；工具失败时把错误文本回填给模型自纠，避免会话卡死；配合 max_rounds 与重复调用检测限制空转成本。",
+              "evidence": {"source": "resume-cli", "detail": "agent/loop.py"}
+            },
+            {
+              "label": "写作审稿循环",
+              "body": "串联简历起草与审稿修订循环；程序化硬过滤空 evidence 与口号式短句后，再交给 LLM Critic；最多两轮强制消化 must，避免低质量短句直接落盘。",
+              "evidence": {"source": "resume-cli", "detail": "resume/critic.py"}
+            }
+          ]
+        },
+        {
+          "project_name": "检索层",
+          "one_liner": "混合检索项目素材。",
+          "rank": 1,
+          "bullets": [
+            {
+              "label": "Hybrid",
+              "body": "实现向量与 FTS5 双路召回并以 RRF 融合排序；简历生成路径可跳过 LLM 精排以控制延迟；同时保留精确术语命中与语义近邻召回的互补能力，显著降低相关素材漏检。",
+              "evidence": {"source": "resume-cli", "detail": "retrieval/hybrid.py"}
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "label_too_long",
+    "expect_must_empty": false,
+    "expect_must_categories": ["style"],
+    "draft": {
+      "locale": "zh-CN",
+      "projects": [
+        {
+          "project_name": "简历 CLI",
+          "one_liner": "本地仓库分析生成 Markdown 简历。",
+          "rank": 0,
+          "bullets": [
+            {
+              "label": "Git仓库分析与简历草稿生成",
+              "body": "实现 tool-use 循环、权限钩子与进度回调；工具失败时把错误文本回填给模型自纠，避免会话卡死；配合 max_rounds 与重复调用检测限制空转成本。",
+              "evidence": {"source": "resume-cli", "detail": "agent/loop.py"}
+            },
+            {
+              "label": "测试与 CI",
+              "body": "串联简历起草与审稿修订循环；程序化硬过滤空 evidence 与口号式短句后，再交给 LLM Critic；最多两轮强制消化 must，避免低质量短句直接落盘。",
+              "evidence": {"source": "resume-cli", "detail": "ci"}
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "primary_rich_too_few_bullets",
+    "expect_must_empty": false,
+    "expect_must_categories": ["structure"],
+    "richness": {"resume-cli": 4},
+    "draft": {
+      "locale": "zh-CN",
+      "projects": [
+        {
+          "project_name": "简历 CLI",
+          "one_liner": "本地仓库分析生成 Markdown 简历。",
+          "rank": 0,
+          "bullets": [
+            {
+              "label": "仓库分析流水线",
+              "body": "实现 tool-use 循环、权限钩子与进度回调；工具失败时把错误文本回填给模型自纠，避免会话卡死；配合 max_rounds 与重复调用检测限制空转成本。",
+              "evidence": {"source": "resume-cli", "detail": "all"}
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "repo_order_mismatch",
+    "expect_must_empty": false,
+    "expect_must_categories": ["ats"],
+    "expected_repo_order": ["social-backend", "pdf-ui"],
+    "draft": {
+      "locale": "zh-CN",
+      "projects": [
+        {
+          "project_name": "PDF 前端",
+          "one_liner": "课程 PDF 评审平台。",
+          "rank": 0,
+          "bullets": [
+            {
+              "label": "评论与回复",
+              "body": "实现 Inbox 收发接口与跨节点请求签名校验；使用 Redis 缓存热门时间线以降低跨节点拉取延迟；补充批次失败重试与操作审计日志，避免静默丢件并便于定位投递故障。",
+              "evidence": {"source": "pdf-ui", "detail": "ui"}
+            }
+          ]
+        },
+        {
+          "project_name": "社交后端",
+          "one_liner": "去中心化内容分发服务。",
+          "rank": 1,
+          "bullets": [
+            {
+              "label": "Inbox 收发",
+              "body": "实现关注与取关写路径、粉丝列表分页及本地缓存失效；保证列表与时间线最终一致；对下游超时与错误响应做降级，避免单点故障拖垮主流程；补充操作审计日志便于排查误操作。",
+              "evidence": {"source": "social-backend", "detail": "inbox"}
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "pipeline_overclaim",
+    "expect_must_empty": false,
+    "expect_must_categories": ["fact"],
+    "draft": {
+      "locale": "zh-CN",
+      "projects": [
+        {
+          "project_name": "简历 CLI",
+          "one_liner": "本地仓库分析生成 Markdown 简历。",
+          "rank": 0,
+          "bullets": [
+            {
+              "label": "仓库分析流水线",
+              "body": "独立开发 CLI agent，实现 git 仓库分析到简历生成的完整 pipeline；集成检索与职位匹配，覆盖从本地代码库提取技术栈到落盘 Markdown 的全链路。",
+              "evidence": {"source": "resume-cli", "detail": "pipeline"}
+            },
+            {
+              "label": "测试与 CI",
+              "body": "串联简历起草与审稿修订循环；程序化硬过滤空 evidence 与口号式短句后，再交给 LLM Critic；最多两轮强制消化 must，避免低质量短句直接落盘。",
+              "evidence": {"source": "resume-cli", "detail": "ci"}
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "clean_module_duty_ok",
+    "expect_must_empty": true,
+    "draft": {
+      "locale": "zh-CN",
+      "projects": [
+        {
+          "project_name": "社交平台后端",
+          "one_liner": "去中心化社交内容分发服务。",
+          "rank": 0,
+          "bullets": [
+            {
+              "label": "Inbox 模块",
+              "body": "负责 Inbox 模块的收发接口与跨节点请求签名校验；使用 Redis 缓存热门时间线以降低跨节点拉取延迟；补充批次失败重试与操作审计日志，避免静默丢件并便于定位投递故障。",
+              "evidence": {"source": "social-dist", "detail": "inbox CRUD"}
+            },
+            {
+              "label": "关注写路径",
+              "body": "实现关注与取关写路径、粉丝列表分页及本地缓存失效；保证列表与时间线最终一致；对下游超时与错误响应做降级，避免单点故障拖垮主流程；补充操作审计日志便于排查误操作。",
+              "evidence": {"source": "social-dist", "detail": "follow graph"}
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "clean_dense_single_chain_ok",
+    "expect_must_empty": true,
+    "draft": {
+      "locale": "zh-CN",
+      "projects": [
+        {
+          "project_name": "天气预测旁路",
+          "one_liner": "面向降雨量序列的特征与评估旁路。",
+          "rank": 1,
+          "bullets": [
+            {
+              "label": "时序特征评估",
+              "body": "实现关注与取关写路径、粉丝列表分页及本地缓存失效；保证列表与时间线最终一致；对下游超时与错误响应做降级，避免单点故障拖垮主流程；补充操作审计日志便于排查误操作。",
+              "evidence": {"source": "ada", "detail": "feature eval"}
+            },
+            {
+              "label": "模型对照实验",
+              "body": "实现 Inbox 收发接口与跨节点请求签名校验；使用 Redis 缓存热门时间线以降低跨节点拉取延迟；补充批次失败重试与操作审计日志，避免静默丢件并便于定位投递故障。",
+              "evidence": {"source": "ada", "detail": "train eval"}
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "clean_label_12_ok",
+    "expect_must_empty": true,
+    "draft": {
+      "locale": "zh-CN",
+      "projects": [
+        {
+          "project_name": "简历 CLI",
+          "one_liner": "本地仓库分析生成 Markdown 简历。",
+          "rank": 0,
+          "bullets": [
+            {
+              "label": "工具循环与钩子",
+              "body": "实现 tool-use 循环、权限钩子与进度回调；工具失败时把错误文本回填给模型自纠，避免会话卡死；配合 max_rounds 与重复调用检测限制空转成本。",
+              "evidence": {"source": "resume-cli", "detail": "agent/loop.py"}
+            },
+            {
+              "label": "写作审稿循环",
+              "body": "串联简历起草与审稿修订循环；程序化硬过滤空 evidence 与口号式短句后，再交给 LLM Critic；最多两轮强制消化 must，避免低质量短句直接落盘。",
+              "evidence": {"source": "resume-cli", "detail": "resume/critic.py"}
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "clean_two_repos_ok",
+    "expect_must_empty": true,
+    "expected_repo_order": ["resume-cli", "social-dist"],
+    "draft": {
+      "locale": "zh-CN",
+      "projects": [
+        {
+          "project_name": "简历 CLI",
+          "one_liner": "本地仓库分析生成 Markdown 简历。",
+          "rank": 0,
+          "bullets": [
+            {
+              "label": "Agent Loop",
+              "body": "实现 tool-use 循环、权限钩子与进度回调；工具失败时把错误文本回填给模型自纠，避免会话卡死；配合 max_rounds 与重复调用检测限制空转成本。",
+              "evidence": {"source": "resume-cli", "detail": "agent/loop.py"}
+            },
+            {
+              "label": "写作审稿循环",
+              "body": "串联简历起草与审稿修订循环；程序化硬过滤空 evidence 与口号式短句后，再交给 LLM Critic；最多两轮强制消化 must，避免低质量短句直接落盘。",
+              "evidence": {"source": "resume-cli", "detail": "resume/critic.py"}
+            }
+          ]
+        },
+        {
+          "project_name": "社交平台后端",
+          "one_liner": "去中心化社交内容分发服务。",
+          "rank": 1,
+          "bullets": [
+            {
+              "label": "Inbox API",
+              "body": "实现 Inbox 收发接口与跨节点请求签名校验；使用 Redis 缓存热门时间线以降低跨节点拉取延迟；补充批次失败重试与操作审计日志，避免静默丢件并便于定位投递故障。",
+              "evidence": {"source": "social-dist", "detail": "inbox CRUD"}
+            },
+            {
+              "label": "关注关系",
+              "body": "实现关注与取关写路径、粉丝列表分页及本地缓存失效；保证列表与时间线最终一致；对下游超时与错误响应做降级，避免单点故障拖垮主流程；补充操作审计日志便于排查误操作。",
+              "evidence": {"source": "social-dist", "detail": "follow graph"}
+            }
+          ]
+        }
+      ]
+    }
+  }
+]

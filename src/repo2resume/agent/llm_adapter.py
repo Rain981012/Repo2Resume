@@ -44,8 +44,6 @@ def make_llm_adapter(
             content, raw_tool_calls, usage = client.complete_with_tools(
                 messages, tools, temperature=temperature
             )
-        if trace_sink is not None:
-            trace_sink(usage)
         tool_calls: list[ToolCall] = []
         for tc in raw_tool_calls:
             fn = getattr(tc, "function", None)
@@ -56,6 +54,10 @@ def make_llm_adapter(
             except (json.JSONDecodeError, TypeError):
                 arguments = {}
             tool_calls.append(ToolCall(id=getattr(tc, "id", ""), name=name, arguments=arguments))
+        if usage.tool_names is None:
+            usage.tool_names = [tc.name for tc in tool_calls if tc.name]
+        if trace_sink is not None:
+            trace_sink(usage)
         # 有 tool_calls 时按协议优先返回 tool_calls；content 留空避免 loop 误判为最终回复
         if tool_calls:
             return LLMResponse(content=None, tool_calls=tool_calls)

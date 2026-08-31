@@ -1,0 +1,1270 @@
+[
+  {
+    "id": "judge_backend_jd",
+    "polarity": "grounded",
+    "jd_text": "Python 后端工程师：FastAPI、Redis、可观测性、能讲清模块边界与协作贡献。",
+    "rubric_notes": "应扣分：若写成整站独立完成；应加分：模块级 + 有 evidence。",
+    "draft": {
+      "locale": "zh-CN",
+      "projects": [
+        {
+          "project_name": "社交平台后端",
+          "one_liner": "分布式社交 API。",
+          "bullets": [
+            {
+              "label": "认证模块",
+              "body": "负责 signup/login 与 JWT 校验模块；补单元测试覆盖登录失败路径。",
+              "evidence": {
+                "source": "social-dist",
+                "detail": "auth module"
+              }
+            },
+            {
+              "label": "Inbox",
+              "body": "实现 inbox CRUD；处理跨节点拉取帖子时的签名校验。",
+              "evidence": {
+                "source": "social-dist",
+                "detail": "inbox"
+              }
+            }
+          ]
+        }
+      ],
+      "job_title": "Python 后端工程师"
+    }
+  },
+  {
+    "id": "judge_overclaim_should_low",
+    "polarity": "overclaim",
+    "jd_text": "寻求诚实描述团队项目贡献的候选人。",
+    "rubric_notes": "故意贪功稿：judge 的「不贪功」维度应偏低。",
+    "draft": {
+      "locale": "zh-CN",
+      "projects": [
+        {
+          "project_name": "大型平台",
+          "one_liner": "全公司核心系统。",
+          "bullets": [
+            {
+              "label": "主导",
+              "body": "独立完成整个前后端与基础设施，从零搭建整套微服务与数据平台。",
+              "evidence": {
+                "source": "tiny-share",
+                "detail": "1 commit"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "judge_slogan_low_spec",
+    "polarity": "slogan",
+    "jd_text": "Python 后端：希望看到具体模块与技术栈，而不是口号。",
+    "rubric_notes": "口号稿：specificity 应偏低。",
+    "draft": {
+      "locale": "zh-CN",
+      "projects": [
+        {
+          "project_name": "后端服务",
+          "one_liner": "公司核心系统。",
+          "bullets": [
+            {
+              "label": "开发",
+              "body": "参与后端开发，完成相关工作。",
+              "evidence": {
+                "source": "misc",
+                "detail": "n/a"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "judge_jd_mismatch_frontend",
+    "polarity": "mismatch",
+    "jd_text": "招聘 Python 后端工程师，要求 FastAPI、PostgreSQL、消息队列。",
+    "rubric_notes": "JD 是后端，稿子只写 CSS 动画：jd_relevance 应偏低。",
+    "draft": {
+      "locale": "zh-CN",
+      "projects": [
+        {
+          "project_name": "营销落地页",
+          "one_liner": "活动页动画。",
+          "bullets": [
+            {
+              "label": "CSS 动效",
+              "body": "用 CSS 动画实现按钮悬停与轮播；没有后端接口或数据库。",
+              "evidence": {
+                "source": "web-ui",
+                "detail": "css"
+              }
+            }
+          ]
+        }
+      ],
+      "job_title": "Python 后端工程师"
+    }
+  },
+  {
+    "id": "judge_fastapi_grounded",
+    "polarity": "grounded",
+    "jd_text": "Python 后端：FastAPI、Redis、JWT。",
+    "rubric_notes": "模块级 + evidence：groundedness / jd_relevance 应偏高。",
+    "draft": {
+      "locale": "zh-CN",
+      "projects": [
+        {
+          "project_name": "演示 API",
+          "one_liner": "FastAPI 微服务与鉴权。",
+          "bullets": [
+            {
+              "label": "JWT 鉴权",
+              "body": "实现 signup/login 与 JWT 校验；用 Redis 缓存会话，补登录失败路径单测。",
+              "evidence": {
+                "source": "demo-api",
+                "detail": "jwt redis"
+              }
+            },
+            {
+              "label": "限流中间件",
+              "body": "为 webhook 增加 rate limiter，保护 postgres 连接池不被突发请求打满。",
+              "evidence": {
+                "source": "demo-api",
+                "detail": "rate limiter"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "judge_missing_evidence",
+    "polarity": "no_evidence",
+    "jd_text": "要求经历可溯源。",
+    "rubric_notes": "evidence.source 为空：groundedness 应偏低。",
+    "draft": {
+      "locale": "zh-CN",
+      "projects": [
+        {
+          "project_name": "订单服务",
+          "one_liner": "订单中台。",
+          "bullets": [
+            {
+              "label": "下单接口",
+              "body": "实现下单与库存扣减接口。",
+              "evidence": {
+                "source": "",
+                "detail": ""
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "judge_k8s_ops",
+    "polarity": "grounded",
+    "jd_text": "容器与集群：Kubernetes、Helm、Terraform。",
+    "rubric_notes": "应对上 k8s 工具链。",
+    "draft": {
+      "locale": "zh-CN",
+      "projects": [
+        {
+          "project_name": "预发集群工具",
+          "one_liner": "面向 staging 的编排与交付。",
+          "bullets": [
+            {
+              "label": "Helm 发布",
+              "body": "用 Helm chart 管理预发工作负载；Terraform 管理配套云资源，避免手工改集群。",
+              "evidence": {
+                "source": "k8s-ops",
+                "detail": "helm terraform"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "judge_agent_loop_ok",
+    "polarity": "grounded",
+    "jd_text": "Agent 工程：tool-use 循环、可观测、防卡死。",
+    "rubric_notes": "模块级 harness 描述应加分。",
+    "draft": {
+      "locale": "zh-CN",
+      "projects": [
+        {
+          "project_name": "简历 CLI",
+          "one_liner": "本地仓库分析生成 Markdown 简历。",
+          "bullets": [
+            {
+              "label": "Agent Loop",
+              "body": "实现 tool-use 循环、权限钩子与重复调用熔断；工具失败回填错误文本让模型自纠。",
+              "evidence": {
+                "source": "resume-cli",
+                "detail": "agent/loop.py"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "judge_g_django_inbox",
+    "polarity": "grounded",
+    "jd_text": "Python 后端：Django REST、跨节点消息。",
+    "rubric_notes": "模块级 + evidence：groundedness / jd_relevance 应偏高。",
+    "draft": {
+      "locale": "zh-CN",
+      "projects": [
+        {
+          "project_name": "社交 inbox",
+          "one_liner": "去中心化内容分发。",
+          "bullets": [
+            {
+              "label": "Inbox CRUD",
+              "body": "实现 inbox 收发与请求签名校验；用 Redis 缓存热门时间线，降低跨节点拉取延迟。",
+              "evidence": {
+                "source": "social-dist",
+                "detail": "inbox"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "judge_g_celery_retry",
+    "polarity": "grounded",
+    "jd_text": "Python 后端：异步任务、失败重试。",
+    "rubric_notes": "模块级 + evidence：groundedness / jd_relevance 应偏高。",
+    "draft": {
+      "locale": "zh-CN",
+      "projects": [
+        {
+          "project_name": "出站投递",
+          "one_liner": "面向联邦协议的投递队列。",
+          "bullets": [
+            {
+              "label": "投递重试",
+              "body": "用 Celery 做出站投递与指数退避；失败批次写入死信队列，避免静默丢件。",
+              "evidence": {
+                "source": "social-dist",
+                "detail": "celery retry"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "judge_g_grpc_auth",
+    "polarity": "grounded",
+    "jd_text": "后端：gRPC、服务间鉴权。",
+    "rubric_notes": "模块级 + evidence：groundedness / jd_relevance 应偏高。",
+    "draft": {
+      "locale": "zh-CN",
+      "projects": [
+        {
+          "project_name": "内部 API",
+          "one_liner": "服务网格内的鉴权旁路。",
+          "bullets": [
+            {
+              "label": "gRPC 鉴权",
+              "body": "为内部 gRPC 接口加 JWT 拦截器；拒绝无租户声明的调用，并补失败路径单测。",
+              "evidence": {
+                "source": "demo-api",
+                "detail": "grpc jwt"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "judge_g_kafka_outbox",
+    "polarity": "grounded",
+    "jd_text": "后端：Kafka、事务消息。",
+    "rubric_notes": "模块级 + evidence：groundedness / jd_relevance 应偏高。",
+    "draft": {
+      "locale": "zh-CN",
+      "projects": [
+        {
+          "project_name": "订单出站",
+          "one_liner": "订单状态变更的可靠广播。",
+          "bullets": [
+            {
+              "label": "Outbox 投递",
+              "body": "订单事务提交后写 outbox，再由 worker 投递 Kafka；用去重键避免重复扣库存。",
+              "evidence": {
+                "source": "order-svc",
+                "detail": "outbox kafka"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "judge_g_spark_etl",
+    "polarity": "grounded",
+    "jd_text": "数据工程：Spark ETL、Parquet schema。",
+    "rubric_notes": "模块级 + evidence：groundedness / jd_relevance 应偏高。",
+    "draft": {
+      "locale": "zh-CN",
+      "projects": [
+        {
+          "project_name": "数仓入仓",
+          "one_liner": "日批入仓作业。",
+          "bullets": [
+            {
+              "label": "日批 ETL",
+              "body": "实现 Spark 日批入仓；修复 parquet schema drift，避免下游列类型静默错位。",
+              "evidence": {
+                "source": "etl-spark",
+                "detail": "daily etl"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "judge_g_react_list",
+    "polarity": "grounded",
+    "jd_text": "前端：React、TypeScript、列表性能。",
+    "rubric_notes": "模块级 + evidence：groundedness / jd_relevance 应偏高。",
+    "draft": {
+      "locale": "zh-CN",
+      "projects": [
+        {
+          "project_name": "评审列表",
+          "one_liner": "课程 PDF 评审前端。",
+          "bullets": [
+            {
+              "label": "虚拟列表",
+              "body": "用 React + TS 做评论列表虚拟滚动；图片上传失败时保留本地草稿，避免刷新丢失。",
+              "evidence": {
+                "source": "pdf-ui",
+                "detail": "virtual list"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "judge_g_prom_metrics",
+    "polarity": "grounded",
+    "jd_text": "可观测：Prometheus、延迟分位。",
+    "rubric_notes": "模块级 + evidence：groundedness / jd_relevance 应偏高。",
+    "draft": {
+      "locale": "zh-CN",
+      "projects": [
+        {
+          "project_name": "搜岗观测",
+          "one_liner": "职位搜索耗时拆分。",
+          "bullets": [
+            {
+              "label": "阶段耗时",
+              "body": "把搜岗拆成 cache/recall/score 计时；把 p95 打进 Prometheus，避免只看到总耗时。",
+              "evidence": {
+                "source": "resume-cli",
+                "detail": "jobs spans"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "judge_g_hybrid_rrf",
+    "polarity": "grounded",
+    "jd_text": "检索：混合检索、可溯源素材。",
+    "rubric_notes": "模块级 + evidence：groundedness / jd_relevance 应偏高。",
+    "draft": {
+      "locale": "zh-CN",
+      "projects": [
+        {
+          "project_name": "简历 RAG",
+          "one_liner": "项目素材召回。",
+          "bullets": [
+            {
+              "label": "RRF 融合",
+              "body": "实现 FTS5 与向量双路召回，用 RRF 融合；生成路径关闭 LLM 重排以控制延迟。",
+              "evidence": {
+                "source": "resume-cli",
+                "detail": "hybrid.py"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "judge_g_sqlite_fts",
+    "polarity": "grounded",
+    "jd_text": "后端：SQLite FTS、本地检索。",
+    "rubric_notes": "模块级 + evidence：groundedness / jd_relevance 应偏高。",
+    "draft": {
+      "locale": "zh-CN",
+      "projects": [
+        {
+          "project_name": "关键词路",
+          "one_liner": "本地 BM25 检索。",
+          "bullets": [
+            {
+              "label": "FTS5 查询",
+              "body": "用 SQLite FTS5 做关键词检索；查询串做特殊字符消毒，避免 MATCH 语法错误。",
+              "evidence": {
+                "source": "resume-cli",
+                "detail": "fts5"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "judge_g_go_gateway",
+    "polarity": "grounded",
+    "jd_text": "后端：Go、API 网关、限流。",
+    "rubric_notes": "模块级 + evidence：groundedness / jd_relevance 应偏高。",
+    "draft": {
+      "locale": "zh-CN",
+      "projects": [
+        {
+          "project_name": "边缘网关",
+          "one_liner": "对外流量入口。",
+          "bullets": [
+            {
+              "label": "令牌桶",
+              "body": "在 Go 网关实现按租户令牌桶；超限返回 429 并打点，避免打满上游连接池。",
+              "evidence": {
+                "source": "edge-gw",
+                "detail": "ratelimit"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "judge_o_fullstack",
+    "polarity": "overclaim",
+    "jd_text": "寻求模块级贡献描述。",
+    "rubric_notes": "故意贪功：no_overclaim 应偏低。",
+    "draft": {
+      "locale": "zh-CN",
+      "projects": [
+        {
+          "project_name": "核心系统",
+          "one_liner": "公司平台。",
+          "bullets": [
+            {
+              "label": "全栈",
+              "body": "独立完成整个前后端与 DevOps，从零搭建整套平台并上线。",
+              "evidence": {
+                "source": "tiny-share",
+                "detail": "1 commit"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "judge_o_from_scratch",
+    "polarity": "overclaim",
+    "jd_text": "团队项目，请写清边界。",
+    "rubric_notes": "故意贪功：no_overclaim 应偏低。",
+    "draft": {
+      "locale": "zh-CN",
+      "projects": [
+        {
+          "project_name": "核心系统",
+          "one_liner": "公司平台。",
+          "bullets": [
+            {
+              "label": "全栈",
+              "body": "从零搭建整套微服务与数据平台，覆盖注册登录消息与推荐全链路。",
+              "evidence": {
+                "source": "tiny-share",
+                "detail": "1 commit"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "judge_o_all_infra",
+    "polarity": "overclaim",
+    "jd_text": "基础设施岗位，强调分工。",
+    "rubric_notes": "故意贪功：no_overclaim 应偏低。",
+    "draft": {
+      "locale": "zh-CN",
+      "projects": [
+        {
+          "project_name": "核心系统",
+          "one_liner": "公司平台。",
+          "bullets": [
+            {
+              "label": "全栈",
+              "body": "一个人负责公司全部 Kubernetes、监控、CI 与值班体系。",
+              "evidence": {
+                "source": "tiny-share",
+                "detail": "1 commit"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "judge_o_owned_ml",
+    "polarity": "overclaim",
+    "jd_text": "机器学习应用，不要夸成研究负责人。",
+    "rubric_notes": "故意贪功：no_overclaim 应偏低。",
+    "draft": {
+      "locale": "zh-CN",
+      "projects": [
+        {
+          "project_name": "核心系统",
+          "one_liner": "公司平台。",
+          "bullets": [
+            {
+              "label": "全栈",
+              "body": "独立设计并训练公司全部推荐模型，效果提升数倍。",
+              "evidence": {
+                "source": "tiny-share",
+                "detail": "1 commit"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "judge_o_led_team",
+    "polarity": "overclaim",
+    "jd_text": "应届岗位，避免虚高职级。",
+    "rubric_notes": "故意贪功：no_overclaim 应偏低。",
+    "draft": {
+      "locale": "zh-CN",
+      "projects": [
+        {
+          "project_name": "核心系统",
+          "one_liner": "公司平台。",
+          "bullets": [
+            {
+              "label": "全栈",
+              "body": "带领数十人团队完成核心交易系统重构并独立决策架构。",
+              "evidence": {
+                "source": "tiny-share",
+                "detail": "1 commit"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "judge_o_complete_user_sys",
+    "polarity": "overclaim",
+    "jd_text": "写清模块即可。",
+    "rubric_notes": "故意贪功：no_overclaim 应偏低。",
+    "draft": {
+      "locale": "zh-CN",
+      "projects": [
+        {
+          "project_name": "核心系统",
+          "one_liner": "公司平台。",
+          "bullets": [
+            {
+              "label": "全栈",
+              "body": "构建了完整的用户体系与消息链路，覆盖全部前后端模块并独立上线。",
+              "evidence": {
+                "source": "tiny-share",
+                "detail": "1 commit"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "judge_o_pipeline",
+    "polarity": "overclaim",
+    "jd_text": "CLI 工具经历，勿写成整条商业闭环。",
+    "rubric_notes": "故意贪功：no_overclaim 应偏低。",
+    "draft": {
+      "locale": "zh-CN",
+      "projects": [
+        {
+          "project_name": "核心系统",
+          "one_liner": "公司平台。",
+          "bullets": [
+            {
+              "label": "全栈",
+              "body": "独立开发 CLI agent，实现 git 分析到简历生成到投递录用的完整 pipeline。",
+              "evidence": {
+                "source": "tiny-share",
+                "detail": "1 commit"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "judge_s_backend",
+    "polarity": "slogan",
+    "jd_text": "Python 后端，要具体技术动作。",
+    "rubric_notes": "口号稿：specificity 应偏低。",
+    "draft": {
+      "locale": "zh-CN",
+      "projects": [
+        {
+          "project_name": "业务系统",
+          "one_liner": "内部平台。",
+          "bullets": [
+            {
+              "label": "工作",
+              "body": "参与后端开发，完成相关工作。",
+              "evidence": {
+                "source": "misc",
+                "detail": "n/a"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "judge_s_frontend",
+    "polarity": "slogan",
+    "jd_text": "前端要写组件与性能，不要空话。",
+    "rubric_notes": "口号稿：specificity 应偏低。",
+    "draft": {
+      "locale": "zh-CN",
+      "projects": [
+        {
+          "project_name": "业务系统",
+          "one_liner": "内部平台。",
+          "bullets": [
+            {
+              "label": "工作",
+              "body": "负责前端开发，优化用户体验。",
+              "evidence": {
+                "source": "misc",
+                "detail": "n/a"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "judge_s_data",
+    "polarity": "slogan",
+    "jd_text": "数据岗需要作业与指标，不要口号。",
+    "rubric_notes": "口号稿：specificity 应偏低。",
+    "draft": {
+      "locale": "zh-CN",
+      "projects": [
+        {
+          "project_name": "业务系统",
+          "one_liner": "内部平台。",
+          "bullets": [
+            {
+              "label": "工作",
+              "body": "参与大数据处理，提升数据质量。",
+              "evidence": {
+                "source": "misc",
+                "detail": "n/a"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "judge_s_ml",
+    "polarity": "slogan",
+    "jd_text": "ML 应用要写数据与评估，不要空泛。",
+    "rubric_notes": "口号稿：specificity 应偏低。",
+    "draft": {
+      "locale": "zh-CN",
+      "projects": [
+        {
+          "project_name": "业务系统",
+          "one_liner": "内部平台。",
+          "bullets": [
+            {
+              "label": "工作",
+              "body": "完成模型训练，取得良好效果。",
+              "evidence": {
+                "source": "misc",
+                "detail": "n/a"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "judge_s_qa",
+    "polarity": "slogan",
+    "jd_text": "测试岗要写用例与失败路径。",
+    "rubric_notes": "口号稿：specificity 应偏低。",
+    "draft": {
+      "locale": "zh-CN",
+      "projects": [
+        {
+          "project_name": "业务系统",
+          "one_liner": "内部平台。",
+          "bullets": [
+            {
+              "label": "工作",
+              "body": "负责测试工作，保障系统稳定。",
+              "evidence": {
+                "source": "misc",
+                "detail": "n/a"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "judge_s_pm_dev",
+    "polarity": "slogan",
+    "jd_text": "开发岗不要写成项目管理套话。",
+    "rubric_notes": "口号稿：specificity 应偏低。",
+    "draft": {
+      "locale": "zh-CN",
+      "projects": [
+        {
+          "project_name": "业务系统",
+          "one_liner": "内部平台。",
+          "bullets": [
+            {
+              "label": "工作",
+              "body": "积极沟通协作，推动项目按时交付。",
+              "evidence": {
+                "source": "misc",
+                "detail": "n/a"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "judge_s_ops",
+    "polarity": "slogan",
+    "jd_text": "运维要写故障与自动化。",
+    "rubric_notes": "口号稿：specificity 应偏低。",
+    "draft": {
+      "locale": "zh-CN",
+      "projects": [
+        {
+          "project_name": "业务系统",
+          "one_liner": "内部平台。",
+          "bullets": [
+            {
+              "label": "工作",
+              "body": "保障线上稳定，做好运维支持。",
+              "evidence": {
+                "source": "misc",
+                "detail": "n/a"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "judge_m_css_for_backend",
+    "polarity": "mismatch",
+    "jd_text": "Python 后端：FastAPI、PostgreSQL。",
+    "rubric_notes": "与 JD 方向明显不符：jd_relevance 应偏低。",
+    "draft": {
+      "locale": "zh-CN",
+      "projects": [
+        {
+          "project_name": "不匹配项目",
+          "one_liner": "与目标岗无关的产出。",
+          "bullets": [
+            {
+              "label": "CSS 动效",
+              "body": "用 CSS 做按钮动画与轮播，无 API。",
+              "evidence": {
+                "source": "web-ui",
+                "detail": "mismatch"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "judge_m_k8s_for_frontend",
+    "polarity": "mismatch",
+    "jd_text": "前端：React、无障碍、组件库。",
+    "rubric_notes": "与 JD 方向明显不符：jd_relevance 应偏低。",
+    "draft": {
+      "locale": "zh-CN",
+      "projects": [
+        {
+          "project_name": "不匹配项目",
+          "one_liner": "与目标岗无关的产出。",
+          "bullets": [
+            {
+              "label": "Helm 发布",
+              "body": "编写 Helm chart 发布预发集群工作负载。",
+              "evidence": {
+                "source": "k8s-ops",
+                "detail": "mismatch"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "judge_m_spark_for_android",
+    "polarity": "mismatch",
+    "jd_text": "Android：Kotlin、列表与离线缓存。",
+    "rubric_notes": "与 JD 方向明显不符：jd_relevance 应偏低。",
+    "draft": {
+      "locale": "zh-CN",
+      "projects": [
+        {
+          "project_name": "不匹配项目",
+          "one_liner": "与目标岗无关的产出。",
+          "bullets": [
+            {
+              "label": "Spark 入仓",
+              "body": "实现 Spark 日批，把日志写入数仓。",
+              "evidence": {
+                "source": "etl-spark",
+                "detail": "mismatch"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "judge_m_ios_for_data",
+    "polarity": "mismatch",
+    "jd_text": "数据工程：Airflow、Spark。",
+    "rubric_notes": "与 JD 方向明显不符：jd_relevance 应偏低。",
+    "draft": {
+      "locale": "zh-CN",
+      "projects": [
+        {
+          "project_name": "不匹配项目",
+          "one_liner": "与目标岗无关的产出。",
+          "bullets": [
+            {
+              "label": "Swift 动画",
+              "body": "用 SwiftUI 做启动页动画与手势。",
+              "evidence": {
+                "source": "ios-app",
+                "detail": "mismatch"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "judge_m_hardware",
+    "polarity": "mismatch",
+    "jd_text": "Python 后端校招。",
+    "rubric_notes": "与 JD 方向明显不符：jd_relevance 应偏低。",
+    "draft": {
+      "locale": "zh-CN",
+      "projects": [
+        {
+          "project_name": "不匹配项目",
+          "one_liner": "与目标岗无关的产出。",
+          "bullets": [
+            {
+              "label": "FPGA 时序",
+              "body": "做 FPGA 时序约束与板级调试验证。",
+              "evidence": {
+                "source": "chip-lab",
+                "detail": "mismatch"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "judge_m_algo_paper",
+    "polarity": "mismatch",
+    "jd_text": "业务后端：CRUD 与稳定性。",
+    "rubric_notes": "与 JD 方向明显不符：jd_relevance 应偏低。",
+    "draft": {
+      "locale": "zh-CN",
+      "projects": [
+        {
+          "project_name": "不匹配项目",
+          "one_liner": "与目标岗无关的产出。",
+          "bullets": [
+            {
+              "label": "论文复现",
+              "body": "复现 Transformer 论文指标，未接入任何在线服务。",
+              "evidence": {
+                "source": "ml-lab",
+                "detail": "mismatch"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "judge_m_design",
+    "polarity": "mismatch",
+    "jd_text": "后端工程师：消息队列与存储。",
+    "rubric_notes": "与 JD 方向明显不符：jd_relevance 应偏低。",
+    "draft": {
+      "locale": "zh-CN",
+      "projects": [
+        {
+          "project_name": "不匹配项目",
+          "one_liner": "与目标岗无关的产出。",
+          "bullets": [
+            {
+              "label": "品牌视觉",
+              "body": "输出海报与配色规范，没有服务端代码。",
+              "evidence": {
+                "source": "design",
+                "detail": "mismatch"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "judge_n_order",
+    "polarity": "no_evidence",
+    "jd_text": "经历必须可溯源。",
+    "rubric_notes": "evidence.source 为空：groundedness 应偏低。",
+    "draft": {
+      "locale": "zh-CN",
+      "projects": [
+        {
+          "project_name": "未标注仓",
+          "one_liner": "缺少溯源。",
+          "bullets": [
+            {
+              "label": "下单接口",
+              "body": "实现下单与库存扣减。",
+              "evidence": {
+                "source": "",
+                "detail": ""
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "judge_n_auth",
+    "polarity": "no_evidence",
+    "jd_text": "请给出仓库或模块依据。",
+    "rubric_notes": "evidence.source 为空：groundedness 应偏低。",
+    "draft": {
+      "locale": "zh-CN",
+      "projects": [
+        {
+          "project_name": "未标注仓",
+          "one_liner": "缺少溯源。",
+          "bullets": [
+            {
+              "label": "登录",
+              "body": "做了 JWT 登录。",
+              "evidence": {
+                "source": "",
+                "detail": ""
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "judge_n_cache",
+    "polarity": "no_evidence",
+    "jd_text": "可溯源优先。",
+    "rubric_notes": "evidence.source 为空：groundedness 应偏低。",
+    "draft": {
+      "locale": "zh-CN",
+      "projects": [
+        {
+          "project_name": "未标注仓",
+          "one_liner": "缺少溯源。",
+          "bullets": [
+            {
+              "label": "缓存",
+              "body": "加了 Redis 缓存。",
+              "evidence": {
+                "source": "",
+                "detail": ""
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "judge_n_ui",
+    "polarity": "no_evidence",
+    "jd_text": "前端经历也要 source。",
+    "rubric_notes": "evidence.source 为空：groundedness 应偏低。",
+    "draft": {
+      "locale": "zh-CN",
+      "projects": [
+        {
+          "project_name": "未标注仓",
+          "one_liner": "缺少溯源。",
+          "bullets": [
+            {
+              "label": "列表页",
+              "body": "实现了评论列表。",
+              "evidence": {
+                "source": "",
+                "detail": ""
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "judge_n_k8s",
+    "polarity": "no_evidence",
+    "jd_text": "基础设施经历要能对上仓。",
+    "rubric_notes": "evidence.source 为空：groundedness 应偏低。",
+    "draft": {
+      "locale": "zh-CN",
+      "projects": [
+        {
+          "project_name": "未标注仓",
+          "one_liner": "缺少溯源。",
+          "bullets": [
+            {
+              "label": "发布",
+              "body": "用 Helm 发过版。",
+              "evidence": {
+                "source": "",
+                "detail": ""
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "judge_n_agent",
+    "polarity": "no_evidence",
+    "jd_text": "Agent 项目请给文件级依据。",
+    "rubric_notes": "evidence.source 为空：groundedness 应偏低。",
+    "draft": {
+      "locale": "zh-CN",
+      "projects": [
+        {
+          "project_name": "未标注仓",
+          "one_liner": "缺少溯源。",
+          "bullets": [
+            {
+              "label": "循环",
+              "body": "写了 tool-use 循环。",
+              "evidence": {
+                "source": "",
+                "detail": ""
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "judge_n_etl",
+    "polarity": "no_evidence",
+    "jd_text": "数据作业请标明仓名。",
+    "rubric_notes": "evidence.source 为空：groundedness 应偏低。",
+    "draft": {
+      "locale": "zh-CN",
+      "projects": [
+        {
+          "project_name": "未标注仓",
+          "one_liner": "缺少溯源。",
+          "bullets": [
+            {
+              "label": "入仓",
+              "body": "跑过 Spark job。",
+              "evidence": {
+                "source": "",
+                "detail": ""
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "judge_x_good_plus_overclaim",
+    "polarity": "mixed",
+    "jd_text": "Python 后端，模块级 + 诚实边界。",
+    "rubric_notes": "半句模块 + 半句贪功：no_overclaim 应被拉低。",
+    "draft": {
+      "locale": "zh-CN",
+      "projects": [
+        {
+          "project_name": "混合稿",
+          "one_liner": "部分具体、部分越界。",
+          "bullets": [
+            {
+              "label": "模块",
+              "body": "实现 inbox CRUD 与签名校验；同时独立完成整个社交平台前后端。",
+              "evidence": {
+                "source": "social-dist",
+                "detail": "inbox"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "judge_x_metric_invented",
+    "polarity": "mixed",
+    "jd_text": "后端：不要虚构百分比。",
+    "rubric_notes": "有模块名但数字像编的：groundedness 应偏低。",
+    "draft": {
+      "locale": "zh-CN",
+      "projects": [
+        {
+          "project_name": "混合稿",
+          "one_liner": "部分具体、部分越界。",
+          "bullets": [
+            {
+              "label": "模块",
+              "body": "实现限流中间件；QPS 提升 1000%，用户量破亿。",
+              "evidence": {
+                "source": "demo-api",
+                "detail": "ratelimit"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "judge_x_share_in_body",
+    "polarity": "mixed",
+    "jd_text": "不要把内部占比写进投递稿。",
+    "rubric_notes": "泄漏内部元数据：应扣 groundedness / 专业性。",
+    "draft": {
+      "locale": "zh-CN",
+      "projects": [
+        {
+          "project_name": "混合稿",
+          "one_liner": "部分具体、部分越界。",
+          "bullets": [
+            {
+              "label": "模块",
+              "body": "实现关注写路径；本人贡献占比约 0.1，author_share 很低。",
+              "evidence": {
+                "source": "social-dist",
+                "detail": "follow"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "judge_x_jd_half",
+    "polarity": "mixed",
+    "jd_text": "要 FastAPI 与 PostgreSQL。",
+    "rubric_notes": "主体跑题，关键词点缀：jd_relevance 应偏低。",
+    "draft": {
+      "locale": "zh-CN",
+      "projects": [
+        {
+          "project_name": "混合稿",
+          "one_liner": "部分具体、部分越界。",
+          "bullets": [
+            {
+              "label": "模块",
+              "body": "实现 React 组件库主题切换；顺带提了一句用过 FastAPI。",
+              "evidence": {
+                "source": "web-ui",
+                "detail": "theme"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  }
+]

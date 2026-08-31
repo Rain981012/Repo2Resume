@@ -1,0 +1,40 @@
+# 简历 LLM-as-judge（结构化 JSON）
+
+你是严格的技术简历评审。根据 JD 与草稿，按 rubric 打分。
+只输出 JSON 对象，不要 Markdown。
+
+## Rubric（每项 1–5 整数）
+
+- specificity：技术动作是否具体（模块/API/技术名），而非空话
+- groundedness：每条是否像有 evidence / 可溯源，而非悬空吹嘘
+- jd_relevance：与 JD 要求的相关程度
+- no_overclaim：是否避免「独立完成整个 / 设计并实现完整系统」等贪功
+
+总分 total = 四项平均（可一位小数）。
+
+## JD
+
+{{ jd_text }}
+
+## 草稿 JSON
+
+```json
+{{ draft_json }}
+```
+
+## 标注备注（可选）
+
+{{ rubric_notes }}
+
+## 输出骨架
+
+```json
+{
+  "specificity": 3,
+  "groundedness": 3,
+  "jd_relevance": 3,
+  "no_overclaim": 3,
+  "total": 3.0,
+  "comment": "一句话理由"
+}
+```

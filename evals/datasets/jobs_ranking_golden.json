@@ -1,0 +1,69 @@
+[
+  {
+    "id": "campus_filter_social_preferred",
+    "profile": {
+      "primary_direction": "Python backend",
+      "tech_stack": {
+        "languages": ["Python"],
+        "frameworks": ["FastAPI"]
+      }
+    },
+    "prefs": {
+      "confirmed_directions": ["Python backend"],
+      "city": "Shanghai",
+      "is_campus": false
+    },
+    "jobs": [
+      {
+        "id": "job-campus",
+        "title": "Python backend campus",
+        "jd_text": "2026 campus graduate program, Python backend",
+        "url": "https://www.zhipin.com/job_detail/campus"
+      },
+      {
+        "id": "job-social",
+        "title": "Python backend engineer",
+        "jd_text": "social hiring, Python FastAPI, onsite Shanghai",
+        "location": "Shanghai",
+        "url": "https://www.liepin.com/job/123456.shtml"
+      }
+    ],
+    "expect_top_ids": ["job-social"],
+    "forbid_top_ids": ["job-campus"],
+    "top_k": 2
+  },
+  {
+    "id": "parttime_should_be_filtered",
+    "profile": {
+      "primary_direction": "Backend Engineer",
+      "tech_stack": {
+        "languages": ["Python"],
+        "frameworks": ["Django"]
+      }
+    },
+    "prefs": {
+      "confirmed_directions": ["Backend Engineer"],
+      "city": "Beijing",
+      "is_campus": null
+    },
+    "jobs": [
+      {
+        "id": "job-parttime",
+        "title": "Backend Part-time",
+        "jd_text": "part-time backend support with Python",
+        "location": "Beijing",
+        "url": "https://jobs.51job.com/beijing/1.html"
+      },
+      {
+        "id": "job-fulltime",
+        "title": "Backend Engineer",
+        "jd_text": "full-time backend engineer, Django and Python",
+        "location": "Beijing",
+        "url": "https://www.zhipin.com/job_detail/fulltime"
+      }
+    ],
+    "expect_top_ids": ["job-fulltime"],
+    "forbid_top_ids": ["job-parttime"],
+    "top_k": 2
+  }
+]

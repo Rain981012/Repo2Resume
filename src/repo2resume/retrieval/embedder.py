@@ -78,14 +78,33 @@ class LocalTransformersEmbedder:
         from transformers import AutoModel, AutoTokenizer
 
         logger.info("Loading local embedding model: %s on %s", self.model_id_or_path, self.device)
-        self._tokenizer = AutoTokenizer.from_pretrained(
-            self.model_id_or_path,
-            trust_remote_code=self.trust_remote_code,
-        )
-        self._model = AutoModel.from_pretrained(
-            self.model_id_or_path,
-            trust_remote_code=self.trust_remote_code,
-        )
+        # 优先只读本地 HF 缓存，避免启动时访问 huggingface.co 超时（Errno 60）
+        # 导致 chat 整段关掉搜岗/简历工具。
+        try:
+            self._tokenizer = AutoTokenizer.from_pretrained(
+                self.model_id_or_path,
+                trust_remote_code=self.trust_remote_code,
+                local_files_only=True,
+            )
+            self._model = AutoModel.from_pretrained(
+                self.model_id_or_path,
+                trust_remote_code=self.trust_remote_code,
+                local_files_only=True,
+            )
+        except (OSError, ValueError) as exc:
+            logger.warning(
+                "Local cache miss for %s (%s); falling back to online download",
+                self.model_id_or_path,
+                exc,
+            )
+            self._tokenizer = AutoTokenizer.from_pretrained(
+                self.model_id_or_path,
+                trust_remote_code=self.trust_remote_code,
+            )
+            self._model = AutoModel.from_pretrained(
+                self.model_id_or_path,
+                trust_remote_code=self.trust_remote_code,
+            )
         self._model.to(self.device)
         self._model.eval()
         # Prefer hidden_size from config; fallback to a dummy forward pass.

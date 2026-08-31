@@ -74,23 +74,39 @@ def register(app: typer.Typer) -> None:
             hide_input=True,
             show_default=False,
         )
+        liepin = typer.prompt(
+            "Liepin MCP token (optional, from https://www.liepin.com/mcp/server)",
+            default=existing.liepin_mcp_token or "",
+            hide_input=True,
+            show_default=False,
+        )
 
         cfg = AppConfig(
             llm_api_key=api_key or None,
             llm_model=model,
             llm_fallback_model=fallback or None,
+            llm_api_base=existing.llm_api_base,
             writer_model=existing.writer_model,
             critic_model=existing.critic_model,
             embed_model=existing.embed_model,
             name=name or None,
             email=email or None,
+            author_identities=existing.author_identities,
             github=github or None,
             redis_url=redis_url,
             data_dir=data_dir,
             tavily_api_key=tavily or None,
             bocha_api_key=bocha or None,
+            alibaba_top_app_key=existing.alibaba_top_app_key,
+            alibaba_top_app_secret=existing.alibaba_top_app_secret,
+            liepin_mcp_token=liepin or None,
+            liepin_mcp_url=existing.liepin_mcp_url,
+            langsmith_api_key=existing.langsmith_api_key,
+            langsmith_project=existing.langsmith_project,
+            langsmith_tracing=existing.langsmith_tracing,
             llm_timeout_s=existing.llm_timeout_s,
             llm_max_retries=existing.llm_max_retries,
+            subagent_return_after_tools=existing.subagent_return_after_tools,
         )
         save_config(cfg)
 

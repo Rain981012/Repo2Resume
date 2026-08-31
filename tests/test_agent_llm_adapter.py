@@ -76,6 +76,16 @@ def test_adapter_calls_trace_sink_with_usage() -> None:
     assert seen[0].model == "fake"
     assert seen[0].input_tokens == 1
     assert seen[0].latency_ms == 0
+    assert seen[0].tool_names == []
+
+
+def test_adapter_trace_sink_includes_tool_names() -> None:
+    seen = []
+    tc = _TC(id="c1", function=_Fn(name="job_scout", arguments="{}"))
+    client = _FakeClient(content="", tool_calls=[tc])
+    llm = make_llm_adapter(client, trace_sink=lambda u: seen.append(u))
+    llm([{"role": "user", "content": "搜岗"}], [])
+    assert seen[0].tool_names == ["job_scout"]
 
 
 def test_adapter_without_trace_sink_does_not_crash() -> None:

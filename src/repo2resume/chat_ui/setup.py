@@ -12,7 +12,9 @@ from repo2resume.agent.builtins import (
     make_analyze_tool,
     make_find_project_materials_tool,
     make_generate_resume_tool,
+    make_job_scout_subagent_tool,
     make_search_jobs_tool,
+    make_set_job_prefs_tool,
 )
 from repo2resume.agent.context import ContextManager
 from repo2resume.agent.hooks import ErrorRecoveryHook, PermissionHook, TraceHook
@@ -21,7 +23,6 @@ from repo2resume.agent.loop import AgentLoop
 from repo2resume.agent.prompt_assembler import PromptAssembler
 from repo2resume.agent.subagent import (
     SubAgentRunner,
-    make_job_scout_spec,
     make_repo_analyst_spec,
 )
 from repo2resume.agent.tools import ToolRegistry
@@ -33,31 +34,28 @@ from repo2resume.storage.db import Database
 
 logger = logging.getLogger(__name__)
 
+# 薄提示：细则在工具返回值 / Writer-Critic 管线，勿在此堆业务规则。
 CHAT_SYSTEM_PROMPT = (
-    "你是 Repo2Resume 的简历助手。可用工具：\n"
-    "1) repo_analyst：委派给仓库分析专家。传入 task（自然语言），"
-    "说明要分析什么、作者身份（如「我是 Rain」）、路径（可省略，默认 ./local_repos/）。"
-    "同一轮用户请求只调用一次；成功后直接向用户汇报，失败则说明原因，不要反复重试。\n"
-    "2) job_scout：委派给职位搜索专家。传入 task（如「按我的方向搜职位」"
-    "或「只要 Python 后端」）；不要自己拼 search_jobs 参数。"
-    "展示职位时必须带上工具返回的每条链接；默认中文招聘市场。\n"
-    "3) generate_resume：针对 JD 或 job_id 生成可溯源项目经历并写入 Markdown"
-    "（会触发写盘确认）。工具内部已含 Writer→Critic→修订，你只需调用一次；"
-    "返回「【已完成】」或已写入路径后，直接向用户汇报预览，禁止再次 generate_resume"
-    "（即使 Critic approved=False / must>0）。超时失败时告知用户，不要连打多遍。\n"
-    "【何时调工具】用户明确要求分析/搜岗/生成简历时才调用。"
-    "若只是打招呼、自我介绍（如「开始」「我是 Rain」「你好」），先用中文简介能力并询问下一步，"
-    "不要调用任何工具。\n"
-    "流程：先 repo_analyst → 告知方向并询问是否搜岗 → 确认后 job_scout → "
-    "用户选定职位（如「1」「第2个」）后立刻 "
-    "generate_resume(job_id=该条方括号内 id)，使用搜岗已入库的 JD；"
-    "禁止再让用户打开招聘网站粘贴 JD。"
-    "仅当工具报 job_id 无效且用户主动粘贴文本时，才改传 jd_text。\n"
-    "不要编造数字或 URL；只引用工具返回内容。回答用中文。"
-    "若出现 StartupXYZ/CloudScale 等 mock 公司名，须标明是示例岗。\n"
-    "【贡献归属】用户质疑「是否本人写的/会不会贪功」时：不要只让用户手改；"
-    "应再次 generate_resume(同一 job_id)，并在确认后说明将按本人 commit/"
-    "低贡献仓收窄表述重新生成。"
+    "你是 Repo2Resume 简历助手。回答用中文；数字与 URL 只引用工具返回，禁止编造。\n"
+    "工具顺序（硬依赖，缺步会被工具拒）：\n"
+    "1) repo_analyst — 用户说「分析仓库」时调用（默认 ./local_repos/，不要向用户索要路径）。"
+    "工具返回含【repo_analyst已完成】时：必须把其中的统计与「方向」块展示给用户，"
+    "请用户确认方向；禁止再问路径；不要回到自我介绍。"
+    "同一轮里拿到【repo_analyst已完成】后不要立刻再调；用户明确要求「重新分析」时可再调。\n"
+    "2) set_job_prefs — 用户确认方向后写入偏好（可与已有项合并，不必每次重传全部）。"
+    "城市：用户说「全国/都行」→ city='全国' 且 remote=true；"
+    "用户说北上广深/江浙沪 → 展开成具体城市名，"
+    "city='北京,上海,广州,深圳' 这种逗号分隔，禁止写缩写；"
+    "校招：用户说「都行/不限」→ is_campus=null，不要反复追问。"
+    "拿到【已保存】后必须立刻 job_scout，禁止连续多次 set_job_prefs。\n"
+    "3) job_scout — prefs 就绪后可调用；拿到【job_scout已完成】后必须把 Markdown "
+    "**原样**展示给用户（综合 Top-N、匹配点/偏好/薪资/缺口、链接、职位编号），"
+    "不要改写成一段理由，本轮不要马上再调 job_scout。"
+    "【重要】搜岗次数没有终身上限。用户说「重新搜索 / 再搜 / 换一批」时必须再调 job_scout；"
+    "禁止编造「系统规定只能搜一次」之类规则。\n"
+    "4) generate_resume(job_id=…) — 用户选定序号后调用；内部已含写作审稿，"
+    "勿自己写长简历；同一轮返回【已完成】后不要连打；用户要求重生成时可再调。\n"
+    "打招呼/自我介绍不调工具。mock 公司名须标明示例岗。"
 )
 
 
@@ -82,16 +80,18 @@ def build_chat_runtime(
     """装配主 agent：工具、hooks、子 agent、loop。"""
     reg = ToolRegistry()
     analyze_tool = make_analyze_tool(cfg, cache, db)
+    reg.register(make_set_job_prefs_tool(db))
 
     search_tool = None
     find_tool = None
+    llm_client = LLMClient(cfg, cache=cache)
     try:
         from repo2resume.retrieval.embedder import build_embedder
 
         embedder = build_embedder(cfg.embed_model)
         search_tool = make_search_jobs_tool(cfg, db, embedder)
         find_tool = make_find_project_materials_tool(cfg, db, embedder)
-        reg.register(make_generate_resume_tool(cfg, db, embedder))
+        reg.register(make_generate_resume_tool(cfg, db, embedder, llm=llm_client))
         console.print(f"[dim]embedder loaded: {cfg.embed_model}[/dim]")
     except Exception as exc:  # noqa: BLE001
         logger.warning("Failed to load Phase 3 embedder: %s", exc)
@@ -110,7 +110,8 @@ def build_chat_runtime(
     ctx = ContextManager(system=assembler.build(None))
 
     # PermissionHook → TraceHook → ErrorRecoveryHook（顺序有语义，勿改）
-    reg.add_hook(TraceHook(db, session_id=session_id))
+    trace_hook = TraceHook(db, session_id=session_id)
+    reg.add_hook(trace_hook)
     reg.add_hook(ErrorRecoveryHook())
 
     def _llm_trace_sink(usage: Any) -> None:
@@ -121,22 +122,41 @@ def build_chat_runtime(
             usage.output_tokens,
             usage.cost_usd,
             usage.latency_ms,
+            payload={
+                "cache_hit": getattr(usage, "cache_hit", False),
+                "tool_names": getattr(usage, "tool_names", None),
+            },
         )
 
     llm = make_llm_adapter(
-        LLMClient(cfg, cache=cache),
+        llm_client,
         trace_sink=_llm_trace_sink,
         # on_token 暂时禁用 streaming，排查卡死问题
     )
 
-    analyst = SubAgentRunner(make_repo_analyst_spec(analyze_tool), llm=llm)
+    analyst = SubAgentRunner(
+        make_repo_analyst_spec(
+            analyze_tool,
+            return_after_tools=cfg.subagent_return_after_tools,
+        ),
+        llm=llm,
+        tool_hooks=[trace_hook],
+    )
+    console.print(
+        f"[dim]repo_analyst return_after_tools={cfg.subagent_return_after_tools} "
+        f"(False=多步总结；True=回传工具原文)[/dim]"
+    )
     reg.register(analyst.as_tool())
     if search_tool is not None:
-        scout = SubAgentRunner(
-            make_job_scout_spec(search_tool, find_tool),
-            llm=llm,
+        reg.register(
+            make_job_scout_subagent_tool(
+                search_tool,
+                find_tool,
+                llm=llm,
+                tool_hooks=[trace_hook],
+            )
         )
-        reg.register(scout.as_tool())
+        console.print("[dim]job_scout=SubAgentRunner（失败则直调 search_jobs）[/dim]")
 
     loop = AgentLoop(
         llm=llm,
@@ -144,7 +164,10 @@ def build_chat_runtime(
         assembler=assembler,
         context=ctx,
         max_rounds=8,
-        max_repeated_tool=5,
+        # 允许「失败重试一次」；真正死循环仍会在第 3 次同名工具时停
+        max_repeated_tool=3,
+        # 搜岗成功后直接展示列表，避免弱模型再 set_job_prefs / 重复 job_scout 耗尽轮数
+        early_return_markers=("【job_scout已完成】",),
     )
     return ChatRuntime(
         registry=reg,

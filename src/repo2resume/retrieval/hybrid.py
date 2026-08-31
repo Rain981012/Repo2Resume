@@ -167,12 +167,17 @@ def reciprocal_rank_fusion(
 
     scores = defaultdict(float)  # 访问不存在的 key 自动返回 0.0
     text_map = {}
+    meta_map = {}
     for hit in vector_hits:
         scores[hit.doc_id] += 1.0 / (k + hit.rank)
         text_map.setdefault(hit.doc_id, hit.text)
+        if hit.metadata and not meta_map.get(hit.doc_id):
+            meta_map[hit.doc_id] = hit.metadata
     for hit in keyword_hits:
         scores[hit.doc_id] += 1.0 / (k + hit.rank)
         text_map.setdefault(hit.doc_id, hit.text)
+        if hit.metadata and not meta_map.get(hit.doc_id):
+            meta_map[hit.doc_id] = hit.metadata
     sorted_ids = sorted(scores, key=scores.get, reverse=True)
     result = []
     for i, doc_id in enumerate(sorted_ids[:top_k], start=1):
@@ -181,6 +186,7 @@ def reciprocal_rank_fusion(
                 doc_id=doc_id,
                 text=text_map[doc_id],
                 score=scores[doc_id],
+                metadata=meta_map.get(doc_id, {}),
                 rank=i,
                 source="hybrid",
             )

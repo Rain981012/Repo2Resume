@@ -1,0 +1,134 @@
+[
+  {
+    "doc_id": "repo:demo-api:summary",
+    "text": "Python FastAPI microservices backend with JWT auth and Redis cache",
+    "repo": "demo-api",
+    "chunk_type": "summary"
+  },
+  {
+    "doc_id": "repo:demo-api:commits",
+    "text": "add rate limiter, refactor webhook handler, fix postgres connection pool",
+    "repo": "demo-api",
+    "chunk_type": "commits"
+  },
+  {
+    "doc_id": "repo:demo-api:deps",
+    "text": "fastapi uvicorn redis sqlalchemy pydantic",
+    "repo": "demo-api",
+    "chunk_type": "dependencies"
+  },
+  {
+    "doc_id": "repo:k8s-ops:summary",
+    "text": "Kubernetes and container orchestration tooling for staging clusters",
+    "repo": "k8s-ops",
+    "chunk_type": "summary"
+  },
+  {
+    "doc_id": "repo:k8s-ops:deps",
+    "text": "kubernetes helm docker-compose terraform",
+    "repo": "k8s-ops",
+    "chunk_type": "dependencies"
+  },
+  {
+    "doc_id": "repo:ml-lab:summary",
+    "text": "machine learning experiments with transformers and fine-tuning",
+    "repo": "ml-lab",
+    "chunk_type": "summary"
+  },
+  {
+    "doc_id": "profile:tech_stack",
+    "text": "Python TypeScript FastAPI React transformers pytorch",
+    "repo": null,
+    "chunk_type": "tech_stack"
+  },
+  {
+    "doc_id": "repo:web-ui:summary",
+    "text": "React frontend TypeScript SPA with Vite and component library",
+    "repo": "web-ui",
+    "chunk_type": "summary"
+  },
+  {
+    "doc_id": "repo:etl-spark:summary",
+    "text": "data pipeline ETL Spark jobs for warehouse ingestion",
+    "repo": "etl-spark",
+    "chunk_type": "summary"
+  },
+  {
+    "doc_id": "repo:etl-spark:commits",
+    "text": "add spark job for daily ETL, fix parquet schema drift",
+    "repo": "etl-spark",
+    "chunk_type": "commits"
+  },
+  {
+    "doc_id": "repo:social-dist:highlight:inbox",
+    "text": "Implemented inbox CRUD and cross-node post federation for distributed social API",
+    "repo": "social-dist",
+    "chunk_type": "highlight"
+  },
+  {
+    "doc_id": "repo:social-dist:summary",
+    "text": "Distributed social platform backend Django REST authors posts inbox",
+    "repo": "social-dist",
+    "chunk_type": "summary"
+  },
+  {
+    "doc_id": "repo:resume-cli:highlight:agent",
+    "text": "Built CLI agent loop with tool registry Writer-Critic resume generation",
+    "repo": "resume-cli",
+    "chunk_type": "highlight"
+  },
+  {
+    "doc_id": "repo:resume-cli:summary",
+    "text": "Repo2Resume CLI analyze git repos skill profile job match Markdown resume",
+    "repo": "resume-cli",
+    "chunk_type": "summary"
+  },
+  {
+    "doc_id": "repo:noise-0:summary",
+    "text": "Python backend microservices FastAPI React TypeScript Kubernetes Spark transformers helm docker Redis JWT",
+    "repo": "noise-0",
+    "chunk_type": "summary"
+  },
+  {
+    "doc_id": "repo:noise-1:summary",
+    "text": "Python FastAPI microservices backend Kubernetes orchestration React frontend TypeScript ETL Spark",
+    "repo": "noise-1",
+    "chunk_type": "summary"
+  },
+  {
+    "doc_id": "repo:noise-2:summary",
+    "text": "CLI agent resume Writer Critic tool loop Django inbox federation Redis cache JWT authentication",
+    "repo": "noise-2",
+    "chunk_type": "summary"
+  },
+  {
+    "doc_id": "repo:noise-3:summary",
+    "text": "machine learning transformers pytorch fine-tuning data pipeline ETL Spark jobs",
+    "repo": "noise-3",
+    "chunk_type": "summary"
+  },
+  {
+    "doc_id": "repo:noise-4:summary",
+    "text": "distributed social inbox federation Django REST authors posts Kubernetes helm terraform docker",
+    "repo": "noise-4",
+    "chunk_type": "summary"
+  },
+  {
+    "doc_id": "repo:noise-5:summary",
+    "text": "high concurrency QPS rate limiter unrelated marketing blog Python backend",
+    "repo": "noise-5",
+    "chunk_type": "summary"
+  },
+  {
+    "doc_id": "repo:noise-6:summary",
+    "text": "webhook handler postgres connection pool appears in noise copy for lexical trap",
+    "repo": "noise-6",
+    "chunk_type": "summary"
+  },
+  {
+    "doc_id": "repo:noise-7:summary",
+    "text": "token login HTTP API throughput copy stuffed with FastAPI keywords Python backend",
+    "repo": "noise-7",
+    "chunk_type": "summary"
+  }
+]
